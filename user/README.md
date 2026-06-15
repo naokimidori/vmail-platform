@@ -7,7 +7,7 @@ Independent ordinary-user frontend for temporary mailbox accounts.
 - Lets ordinary users register, verify email when enabled, log in, and keep a local session.
 - Lets logged-in users create temporary mailbox addresses and bind them to their account.
 - Shows bound mailbox addresses, address-scoped inbox messages, parsed message details, and user settings.
-- Runs independently from the read-only admin frontend in `../admin`.
+- Runs independently from the admin frontend in `../admin`.
 - Follows the existing admin visual and interaction style incrementally: glass frame, shared UI primitives, lucide icons, toast feedback, loading/empty/error states, and responsive layouts.
 
 This portal does not implement OAuth2 login, passkeys, SMTP/IMAP setup, sending mail, webhook settings, Telegram binding, billing, or super-admin user management.

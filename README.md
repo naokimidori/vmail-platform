@@ -1,6 +1,6 @@
 # V-Mail
 
-V-Mail is a two-frontend web portal for a Cloudflare-backed temporary email service. The repository contains an ordinary-user portal and a read-only admin console, both built as Vite + React static applications that can be deployed with Cloudflare Pages.
+V-Mail is a two-frontend web portal for a Cloudflare-backed temporary email service. The repository contains an ordinary-user portal and an admin console, both built as Vite + React static applications that can be deployed with Cloudflare Pages.
 
 中文文档见 [README_CN.md](README_CN.md).
 
@@ -9,7 +9,7 @@ V-Mail is a two-frontend web portal for a Cloudflare-backed temporary email serv
 | App | Path | Purpose |
 | --- | --- | --- |
 | User portal | `user/` | Register or log in, create mailbox addresses, browse bound inboxes, and read parsed messages. |
-| Admin console | `admin/` | Use the existing admin credential to inspect accounts, addresses, messages, service status, and user settings. |
+| Admin console | `admin/` | Use the existing admin credential to inspect accounts, manage mailbox addresses, delete accounts, view messages, check service status, and update user settings. |
 
 The apps are intentionally frontend-only. They expect an existing Worker or Pages Functions API to provide mailbox, user, admin, and message endpoints.
 
@@ -26,7 +26,7 @@ The apps are intentionally frontend-only. They expect an existing Worker or Page
 
 ```text
 .
-├── admin/             # Read-only admin frontend
+├── admin/             # Admin frontend
 ├── user/              # Ordinary-user portal, including an embedded /admin route
 ├── package.json       # Root tooling dependency, currently Wrangler
 └── .gitignore         # Keeps local env, build output, dependencies, and operational exports out of Git
@@ -35,13 +35,6 @@ The apps are intentionally frontend-only. They expect an existing Worker or Page
 Operational analysis files, D1 exports, local environment files, build output, and dependency folders are intentionally ignored and should not be committed to a public repository.
 
 ## Environment Variables
-
-This project does not use `VITE_` prefixes. The Vite configs explicitly expose these public client-side prefixes:
-
-- `ADMIN_`
-- `USER_`
-- `MAILBOX_`
-- `PUBLIC_`
 
 These values are bundled into frontend JavaScript, so they must not contain secrets.
 
@@ -170,4 +163,4 @@ The admin console sends the admin credential via `x-admin-auth`. The backend mus
 
 ## License
 
-No license has been declared yet. Add one before accepting external contributions or reuse.
+MIT

@@ -1,6 +1,6 @@
 # V-Mail
 
-V-Mail 是一个面向 Cloudflare 临时邮箱服务的双前端项目。仓库中包含普通用户门户和只读管理后台，两者都是 Vite + React 静态应用，可以直接用 Cloudflare Pages 部署。
+V-Mail 是一个面向 Cloudflare 临时邮箱服务的双前端项目。仓库中包含普通用户门户和管理后台，两者都是 Vite + React 静态应用，可以直接用 Cloudflare Pages 部署。
 
 English documentation: [README.md](README.md).
 
@@ -9,7 +9,7 @@ English documentation: [README.md](README.md).
 | 应用 | 路径 | 用途 |
 | --- | --- | --- |
 | 用户门户 | `user/` | 注册/登录、创建邮箱地址、查看绑定邮箱、阅读解析后的邮件。 |
-| 管理后台 | `admin/` | 使用现有管理员凭据查看账号、地址、邮件、服务状态和用户设置。 |
+| 管理后台 | `admin/` | 使用现有管理员凭据查看账号、管理邮箱地址、删除账号、查看邮件、检查服务状态和更新用户设置。 |
 
 这两个应用都只包含前端代码。邮箱、用户、管理、邮件解析等能力需要由现有 Worker 或 Pages Functions API 提供。
 
@@ -26,7 +26,7 @@ English documentation: [README.md](README.md).
 
 ```text
 .
-├── admin/             # 只读管理后台
+├── admin/             # 管理后台
 ├── user/              # 普通用户门户，内部也包含 /admin 路由
 ├── package.json       # 根目录工具依赖，目前主要是 Wrangler
 └── .gitignore         # 忽略本地 env、构建产物、依赖和运维导出数据
@@ -35,13 +35,6 @@ English documentation: [README.md](README.md).
 D1 分析文件、邮箱导出数据、本地环境变量、构建产物和依赖目录都已被忽略，不应该提交到公开仓库。
 
 ## 环境变量
-
-本项目不使用 `VITE_` 前缀。Vite 配置中显式允许以下公开前端变量前缀：
-
-- `ADMIN_`
-- `USER_`
-- `MAILBOX_`
-- `PUBLIC_`
 
 这些变量会被打包进前端 JavaScript，因此不能放任何密钥。
 
@@ -170,4 +163,4 @@ PUBLIC_MAILBOX_URL=https://mail.example.com
 
 ## 许可证
 
-当前尚未声明许可证。如果要接受外部贡献或允许他人复用，建议先补充 LICENSE。
+MIT

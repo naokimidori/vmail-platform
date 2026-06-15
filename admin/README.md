@@ -1,6 +1,6 @@
-# V-Mail Read-only Admin
+# V-Mail Admin
 
-Independent read-only admin frontend for a Cloudflare-backed temporary email service.
+Independent admin frontend for a Cloudflare-backed temporary email service.
 
 For the ordinary-user mailbox portal, see `../user/README.md`.
 
@@ -9,7 +9,8 @@ For the ordinary-user mailbox portal, see `../user/README.md`.
 - Runs independently from the public mailbox frontend.
 - Uses the existing admin password mechanism.
 - Sends the admin credential as `x-admin-auth` through the centralized admin API client.
-- Shows all accounts, account detail, mailbox addresses, message previews, search, and system status in read-only mode.
+- Shows all accounts, account detail, mailbox addresses, message previews, search, and system status.
+- Supports mailbox account creation and deletion through the backend admin API.
 
 ## Local Development
 
@@ -57,8 +58,7 @@ Before shipping visual changes, check desktop `1440 x 1000`, tablet `820 x 1180`
 
 ## Security Notes
 
-- Version one is read-only.
-- Do not add create, delete, send, edit, or settings mutation controls without a new design review.
+- Do not add send-mail or unrelated mutation controls without a new design review.
 - The admin credential must not be placed in URLs, logs, analytics events, or copied links.
 - If the backend returns raw email HTML, render it through a sandboxed or sanitized preview.
 
