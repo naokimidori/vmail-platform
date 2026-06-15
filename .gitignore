@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+admin/node_modules/
+user/node_modules/
+
+# Build outputs
+dist/
+admin/dist/
+user/dist/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# TypeScript incremental build metadata
+*.tsbuildinfo
+
+# Generated config artifacts
+admin/vite.config.js
+admin/vite.config.d.ts
+admin/tailwind.config.js
+admin/tailwind.config.d.ts
+admin/vitest.setup.js
+admin/vitest.setup.d.ts
+user/vite.config.js
+user/vite.config.d.ts
+user/tailwind.config.js
+user/tailwind.config.d.ts
+user/vitest.setup.js
+user/vitest.setup.d.ts
+
+# OS and local tooling
+.DS_Store
+*.log
+.playwright-mcp/
+.superpowers/
+.spec-workflow/
+docs/superpowers/
+
+# Mailbox and D1 operational exports
+mailbox-*.csv
+mailbox-*.md
+suspicious-mailboxes*.md
+d1-analysis/
+d1-analysis/*.csv
+d1-analysis/*.out
+d1-analysis/*.md
