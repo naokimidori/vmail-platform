@@ -18,6 +18,12 @@ user/dist/
 *.tsbuildinfo
 
 # Generated config artifacts
+vite.config.js
+vite.config.d.ts
+tailwind.config.js
+tailwind.config.d.ts
+vitest.setup.js
+vitest.setup.d.ts
 admin/vite.config.js
 admin/vite.config.d.ts
 admin/tailwind.config.js
