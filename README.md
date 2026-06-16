@@ -1,17 +1,15 @@
 # V-Mail
 
-V-Mail is a two-frontend web portal for a Cloudflare-backed temporary email service. The repository contains an ordinary-user portal and an admin console, both built as Vite + React static applications that can be deployed to static hosting platforms such as Cloudflare Pages, Vercel, Netlify, or similar services.
+V-Mail is a single-deployment web portal for a Cloudflare-backed temporary email service. One Vite + React static app serves both ordinary user routes and admin routes.
 
 中文文档见 [README_CN.md](README_CN.md).
 
-## Applications
+## Routes
 
-| App | Path | Purpose |
+| Route group | Paths | Purpose |
 | --- | --- | --- |
-| User portal | `user/` | Register or log in, create mailbox addresses, browse bound inboxes, and read parsed messages. |
-| Admin console | `admin/` | Use the existing admin credential to inspect accounts, manage mailbox addresses, delete accounts, view messages, check service status, and update user settings. |
-
-The apps are intentionally frontend-only. They expect an existing Worker or Pages Functions API to provide mailbox, user, admin, and message endpoints.
+| User portal | `/`, `/login`, `/register`, `/inbox`, `/settings` | Register or log in, create mailbox addresses, browse bound inboxes, and read parsed messages. |
+| Admin console | `/admin`, `/admin/accounts`, `/admin/settings`, `/admin/status` | Use the existing admin credential to inspect accounts, manage mailbox addresses, delete accounts, view messages, check service status, and update user settings. |
 
 ## Tech Stack
 
@@ -20,134 +18,91 @@ The apps are intentionally frontend-only. They expect an existing Worker or Page
 - TypeScript
 - Tailwind CSS
 - Vitest + Testing Library
-- Static-hosting-ready builds
+- Static hosting on Cloudflare Pages, Vercel, Netlify, or similar platforms
 
 ## Repository Layout
 
 ```text
 .
-├── admin/             # Admin frontend
-├── user/              # Ordinary-user portal, including an embedded /admin route
-├── package.json       # Root tooling dependency, currently Wrangler
-└── .gitignore         # Keeps local env, build output, dependencies, and operational exports out of Git
+├── public/            # Static assets and Cloudflare/Netlify SPA fallback
+├── src/
+│   ├── admin/         # Admin console mounted at /admin/*
+│   ├── api/           # User API client
+│   ├── auth/          # User auth state
+│   ├── components/    # User portal pages and shared user UI
+│   └── config/        # Public frontend environment variables
+├── index.html
+├── package.json
+├── vite.config.ts
+└── vercel.json        # Vercel SPA fallback
 ```
-
-Operational analysis files, D1 exports, local environment files, build output, and dependency folders are intentionally ignored and should not be committed to a public repository.
 
 ## Environment Variables
 
 These values are bundled into frontend JavaScript, so they must not contain secrets.
 
-| Variable | Used by | Description |
-| --- | --- | --- |
-| `USER_API_BASE_URL` | `user/` | Base URL for ordinary-user API calls. Use `mock` for local demo data. |
-| `ADMIN_API_BASE_URL` | `admin/`, `user/src/admin` | Base URL for admin API calls. Use `mock` for local demo data. |
-| `MAILBOX_DOMAIN` | both apps | Domain used when creating or previewing mailbox addresses. |
-| `PUBLIC_MAILBOX_URL` | admin UI | Public mailbox URL used when generating mailbox access links. |
+| Variable | Description |
+| --- | --- |
+| `USER_API_BASE_URL` | Base URL for ordinary-user API calls. Use `mock` for local demo data. |
+| `ADMIN_API_BASE_URL` | Base URL for admin API calls. Use `mock` for local demo data. |
+| `MAILBOX_DOMAIN` | Domain used when creating or previewing mailbox addresses. |
+| `PUBLIC_MAILBOX_URL` | Public mailbox URL used when generating mailbox access links. |
 
-Example files:
-
-- `admin/.env.example`
-- `user/.env.example`
-
-Never put Cloudflare API tokens, JWT signing secrets, admin passwords, D1 credentials, Turnstile secret keys, or any private backend configuration in these frontend environment variables.
+Copy `.env.example` to `.env.local` for local values.
 
 ## Local Development
 
-Install and run the user portal:
-
 ```bash
-cd user
 npm install
 npm run dev -- --host 127.0.0.1
 ```
 
-Install and run the admin console:
-
-```bash
-cd admin
-npm install
-npm run dev -- --host 127.0.0.1
-```
-
-By default, both apps can run against mock data. To connect to a real API, copy the matching `.env.example` to `.env.local` and set the public API/domain values for your environment.
+By default the app can run against mock data. To connect to a real API, set the public API and domain values in `.env.local`.
 
 ## Testing and Builds
 
-Run tests:
-
 ```bash
-cd admin
 npm test
-
-cd ../user
-npm test
-```
-
-Build production assets:
-
-```bash
-cd admin
-npm run build
-
-cd ../user
 npm run build
 ```
 
-Each app writes its static output to `dist/`.
+The production build is written to `dist/`.
 
 ## Deployment
 
-The apps build to plain static assets, so they can be hosted on Cloudflare Pages, Vercel, Netlify, or any platform that supports SPA fallback routing. The recommended Cloudflare Pages setup is two projects:
+Use one static site project.
 
-### User Portal
+Cloudflare Pages:
 
 ```text
-Root directory: user
+Root directory: .
 Build command: npm run build
 Build output directory: dist
 ```
 
-Set Pages environment variables as needed:
-
-```env
-USER_API_BASE_URL=https://api.example.com
-ADMIN_API_BASE_URL=https://api.example.com
-MAILBOX_DOMAIN=example.com
-PUBLIC_MAILBOX_URL=https://mail.example.com
-```
-
-### Admin Console
+Vercel:
 
 ```text
-Root directory: admin
-Build command: npm run build
-Build output directory: dist
+Framework: Vite
+Root Directory: .
+Build Command: npm run build
+Output Directory: dist
 ```
 
-Set Pages environment variables as needed:
-
-```env
-ADMIN_API_BASE_URL=https://api.example.com
-MAILBOX_DOMAIN=example.com
-PUBLIC_MAILBOX_URL=https://mail.example.com
-```
-
-Both apps include `public/_redirects` with SPA fallback:
+`public/_redirects` provides Cloudflare/Netlify SPA fallback:
 
 ```text
 /* /index.html 200
 ```
 
-This allows React Router routes such as `/inbox`, `/settings`, and `/accounts` to refresh correctly on static hosting platforms. Use the equivalent SPA fallback setting if your host does not support Cloudflare Pages-style `_redirects`.
+`vercel.json` provides Vercel SPA fallback for React Router paths such as `/admin/accounts`, `/inbox`, and `/settings`.
 
 ## API Expectations
 
 Endpoint adapters are centralized in:
 
-- `user/src/api/userClient.ts`
-- `admin/src/api/adminClient.ts`
-- `user/src/admin/api/adminClient.ts`
+- `src/api/userClient.ts`
+- `src/admin/api/adminClient.ts`
 
 The user portal sends ordinary-user credentials via `x-user-token` and address-scoped access via `Authorization: Bearer <address jwt>`.
 
@@ -155,10 +110,9 @@ The admin console sends the admin credential via `x-admin-auth`. The backend mus
 
 ## Security Notes
 
-- This repository is safe to publish only if `.env.local`, operational exports, and generated artifacts remain ignored.
 - Frontend environment variables are public by design.
 - Put real secrets in the backend Worker or Pages Functions environment, not in this repository.
-- Consider deploying the admin console separately and protecting it with Cloudflare Access.
+- If `/admin` needs an additional perimeter, protect the same deployed site path with host-level access rules while keeping the frontend build unified.
 - Keep CORS rules explicit if the frontend and API are on different origins.
 
 ## License

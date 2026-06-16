@@ -1,17 +1,15 @@
 # V-Mail
 
-V-Mail 是一个面向 Cloudflare 临时邮箱服务的双前端项目。仓库中包含普通用户门户和管理后台，两者都是 Vite + React 静态应用，可以部署到 Cloudflare Pages、Vercel、Netlify 等静态托管平台。
+V-Mail 是一个面向 Cloudflare 临时邮箱服务的单次部署前端项目。同一个 Vite + React 静态应用同时提供普通用户门户和管理后台。
 
 English documentation: [README.md](README.md).
 
-## 应用组成
+## 路由
 
-| 应用 | 路径 | 用途 |
+| 路由组 | 路径 | 用途 |
 | --- | --- | --- |
-| 用户门户 | `user/` | 注册/登录、创建邮箱地址、查看绑定邮箱、阅读解析后的邮件。 |
-| 管理后台 | `admin/` | 使用现有管理员凭据查看账号、管理邮箱地址、删除账号、查看邮件、检查服务状态和更新用户设置。 |
-
-这两个应用都只包含前端代码。邮箱、用户、管理、邮件解析等能力需要由现有 Worker 或 Pages Functions API 提供。
+| 用户门户 | `/`、`/login`、`/register`、`/inbox`、`/settings` | 注册/登录、创建邮箱地址、查看绑定邮箱、阅读解析后的邮件。 |
+| 管理后台 | `/admin`、`/admin/accounts`、`/admin/settings`、`/admin/status` | 使用现有管理员凭据查看账号、管理邮箱地址、删除账号、查看邮件、检查服务状态和更新用户设置。 |
 
 ## 技术栈
 
@@ -20,134 +18,91 @@ English documentation: [README.md](README.md).
 - TypeScript
 - Tailwind CSS
 - Vitest + Testing Library
-- 适配静态托管平台的构建产物
+- 支持 Cloudflare Pages、Vercel、Netlify 等静态托管平台
 
 ## 目录结构
 
 ```text
 .
-├── admin/             # 管理后台
-├── user/              # 普通用户门户，内部也包含 /admin 路由
-├── package.json       # 根目录工具依赖，目前主要是 Wrangler
-└── .gitignore         # 忽略本地 env、构建产物、依赖和运维导出数据
+├── public/            # 静态资源和 Cloudflare/Netlify SPA fallback
+├── src/
+│   ├── admin/         # 挂载在 /admin/* 的管理后台
+│   ├── api/           # 用户 API client
+│   ├── auth/          # 用户登录态
+│   ├── components/    # 用户门户页面和用户侧 UI
+│   └── config/        # 公开前端环境变量
+├── index.html
+├── package.json
+├── vite.config.ts
+└── vercel.json        # Vercel SPA fallback
 ```
-
-D1 分析文件、邮箱导出数据、本地环境变量、构建产物和依赖目录都已被忽略，不应该提交到公开仓库。
 
 ## 环境变量
 
 这些变量会被打包进前端 JavaScript，因此不能放任何密钥。
 
-| 变量 | 使用位置 | 说明 |
-| --- | --- | --- |
-| `USER_API_BASE_URL` | `user/` | 普通用户 API Base URL。设置为 `mock` 时使用本地模拟数据。 |
-| `ADMIN_API_BASE_URL` | `admin/`、`user/src/admin` | 管理 API Base URL。设置为 `mock` 时使用本地模拟数据。 |
-| `MAILBOX_DOMAIN` | 两个应用 | 创建或预览邮箱地址时使用的域名。 |
-| `PUBLIC_MAILBOX_URL` | 管理后台 | 生成邮箱访问链接时使用的公开邮箱地址。 |
+| 变量 | 说明 |
+| --- | --- |
+| `USER_API_BASE_URL` | 普通用户 API Base URL。设置为 `mock` 时使用本地模拟数据。 |
+| `ADMIN_API_BASE_URL` | 管理 API Base URL。设置为 `mock` 时使用本地模拟数据。 |
+| `MAILBOX_DOMAIN` | 创建或预览邮箱地址时使用的域名。 |
+| `PUBLIC_MAILBOX_URL` | 生成邮箱访问链接时使用的公开邮箱地址。 |
 
-示例文件：
-
-- `admin/.env.example`
-- `user/.env.example`
-
-不要把 Cloudflare API Token、JWT 签名密钥、管理员密码、D1 凭据、Turnstile Secret Key 或任何后端私密配置放进这些前端环境变量。
+本地开发时复制 `.env.example` 为 `.env.local`。
 
 ## 本地开发
 
-启动用户门户：
-
 ```bash
-cd user
 npm install
 npm run dev -- --host 127.0.0.1
 ```
 
-启动管理后台：
-
-```bash
-cd admin
-npm install
-npm run dev -- --host 127.0.0.1
-```
-
-默认情况下，两个应用都可以使用 mock 数据运行。如果要连接真实 API，请复制对应的 `.env.example` 为 `.env.local`，然后填写当前环境的公开 API 地址和域名配置。
+默认情况下应用可以使用 mock 数据运行。如果要连接真实 API，请在 `.env.local` 中填写公开 API 地址和域名配置。
 
 ## 测试与构建
 
-运行测试：
-
 ```bash
-cd admin
 npm test
-
-cd ../user
-npm test
-```
-
-构建生产静态资源：
-
-```bash
-cd admin
-npm run build
-
-cd ../user
 npm run build
 ```
 
-每个应用的构建产物都会输出到各自的 `dist/` 目录。
+生产构建产物输出到 `dist/`。
 
 ## 部署
 
-两个应用都会构建成普通静态资源，因此可以托管在 Cloudflare Pages、Vercel、Netlify 或任何支持 SPA 路由回退的平台。推荐的 Cloudflare Pages 配置是创建两个项目：
+只需要创建一个静态站点项目。
 
-### 用户门户
+Cloudflare Pages:
 
 ```text
-Root directory: user
+Root directory: .
 Build command: npm run build
 Build output directory: dist
 ```
 
-按需配置 Pages 环境变量：
-
-```env
-USER_API_BASE_URL=https://api.example.com
-ADMIN_API_BASE_URL=https://api.example.com
-MAILBOX_DOMAIN=example.com
-PUBLIC_MAILBOX_URL=https://mail.example.com
-```
-
-### 管理后台
+Vercel:
 
 ```text
-Root directory: admin
-Build command: npm run build
-Build output directory: dist
+Framework: Vite
+Root Directory: .
+Build Command: npm run build
+Output Directory: dist
 ```
 
-按需配置 Pages 环境变量：
-
-```env
-ADMIN_API_BASE_URL=https://api.example.com
-MAILBOX_DOMAIN=example.com
-PUBLIC_MAILBOX_URL=https://mail.example.com
-```
-
-两个应用都包含 `public/_redirects`：
+`public/_redirects` 提供 Cloudflare/Netlify 的 SPA fallback：
 
 ```text
 /* /index.html 200
 ```
 
-这样刷新 `/inbox`、`/settings`、`/accounts` 等 React Router 路由时不会返回 404。如果使用的托管平台不支持 Cloudflare Pages 风格的 `_redirects`，请配置等价的 SPA fallback 规则。
+`vercel.json` 提供 Vercel 的 SPA fallback，确保 `/admin/accounts`、`/inbox`、`/settings` 等 React Router 路由刷新时不会 404。
 
 ## API 约定
 
 接口适配集中在以下文件：
 
-- `user/src/api/userClient.ts`
-- `admin/src/api/adminClient.ts`
-- `user/src/admin/api/adminClient.ts`
+- `src/api/userClient.ts`
+- `src/admin/api/adminClient.ts`
 
 用户门户会通过 `x-user-token` 发送普通用户凭据，通过 `Authorization: Bearer <address jwt>` 发送地址级访问凭据。
 
@@ -155,10 +110,9 @@ PUBLIC_MAILBOX_URL=https://mail.example.com
 
 ## 安全说明
 
-- 只要 `.env.local`、运维导出数据和生成产物继续被忽略，本仓库可以公开。
 - 前端环境变量天然是公开信息。
 - 真实密钥应该放在后端 Worker 或 Pages Functions 的环境变量/secret 中，不要提交到仓库。
-- 建议管理后台单独部署，并用 Cloudflare Access 做额外保护。
+- 如果 `/admin` 需要额外的外围保护，请在同一个已部署站点的路径或主机规则上配置访问控制，同时保持前端只构建和部署一次。
 - 如果前端和 API 不同源，后端需要显式配置 CORS。
 
 ## 许可证
