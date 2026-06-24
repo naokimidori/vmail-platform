@@ -43,10 +43,8 @@ These values are bundled into frontend JavaScript, so they must not contain secr
 
 | Variable | Description |
 | --- | --- |
-| `USER_API_BASE_URL` | Base URL for ordinary-user API calls. Use `mock` for local demo data. |
-| `ADMIN_API_BASE_URL` | Base URL for admin API calls. Use `mock` for local demo data. |
+| `API_BASE_URL` | Base URL for all API calls (user and admin). Use `mock` for local demo data. |
 | `MAILBOX_DOMAINS` | Comma-separated mailbox domains supported by the UI. The first value is the default domain. |
-| `MAILBOX_DOMAIN` | Optional legacy single-domain fallback when `MAILBOX_DOMAINS` is not set. |
 | `PUBLIC_MAILBOX_URL` | Public mailbox URL used when generating mailbox access links. |
 
 Copy `.env.example` to `.env.local` for local values.
