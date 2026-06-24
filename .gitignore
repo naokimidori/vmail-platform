@@ -44,6 +44,9 @@ user/vitest.setup.d.ts
 *.gif
 tmp/
 .claude/
+
+# Keep logo assets
+!public/assets/*.png
 vite.config.js
 vite.config.d.ts
 tailwind.config.js
