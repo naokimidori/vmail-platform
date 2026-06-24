@@ -11,6 +11,7 @@ import {
   AccountCreatedAt,
   AccountEmailAddress,
   AccountEmptyState,
+  AccountLastActive,
   AccountMailCount,
   AccountStatsBar,
   AccountStatusBadge,
@@ -345,22 +346,24 @@ export function AccountListPage() {
             <table className="w-full caption-bottom text-sm" style={{ tableLayout: "fixed" }}>
               <colgroup>
                 <col />
-                <col className="w-32" />
+                <col className="w-28" />
+                <col className="w-36" />
+                <col className="w-36" />
+                <col className="w-20" />
                 <col className="w-40" />
-                <col className="w-24" />
-                <col className="w-44" />
               </colgroup>
               <TableHeader>
                 <TableRow className="bg-muted/30 hover:bg-muted/30">
                   <TableHead className="pl-4 pr-3 max-w-[200px]">Account</TableHead>
                   <TableHead className="px-3">Status</TableHead>
                   <TableHead className="px-3">Created</TableHead>
+                  <TableHead className="px-3">Last active</TableHead>
                   <TableHead className="px-3">Mail</TableHead>
                   <TableHead className="pr-4 pl-3">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isPageLoading ? <AccountTableSkeleton columnCount={5} /> : null}
+                {isPageLoading ? <AccountTableSkeleton columnCount={6} /> : null}
                 {!isPageLoading
                   ? visibleAccounts.map((account) => (
                       <TableRow
@@ -383,6 +386,9 @@ export function AccountListPage() {
                         </TableCell>
                         <TableCell className="px-3 py-2 align-middle">
                           <AccountCreatedAt value={account.createdAt} />
+                        </TableCell>
+                        <TableCell className="px-3 py-2 align-middle">
+                          <AccountLastActive value={account.lastActiveAt} />
                         </TableCell>
                         <TableCell className="px-3 py-2 align-middle">
                           <AccountMailCount count={account.messageCount} />

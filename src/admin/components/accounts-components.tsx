@@ -435,6 +435,17 @@ export function AccountCreatedAt({ value }: { value: string }) {
   );
 }
 
+export function AccountLastActive({ value }: { value: string }) {
+  if (!value) return <span className="text-muted-foreground">—</span>;
+  return (
+    <span
+      className="text-sm tabular-nums text-muted-foreground transition-colors duration-150 group-hover/row:text-foreground/70 group-data-[state=selected]/row:text-foreground/70"
+    >
+      {formatDatabaseDateTime(value, { seconds: false })}
+    </span>
+  );
+}
+
 export interface AccountStats {
   total: number;
   active: number;
