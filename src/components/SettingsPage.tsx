@@ -4,18 +4,18 @@ import { useEffect, useMemo, useState } from "react";
 import type { UserSettings } from "../api/types";
 import { createUserClient } from "../api/userClient";
 import { useUserAuth } from "../auth/UserAuthContext";
-import { userApiBaseUrl } from "../config/env";
+import { apiBaseUrl } from "../config/env";
 import { ErrorState, LoadingState } from "./States";
 import { SectionHeader } from "./UserShell";
 import { Badge } from "./ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 
-const apiBaseUrl = userApiBaseUrl;
+const apiBase = apiBaseUrl;
 
 export function SettingsPage() {
   const auth = useUserAuth();
   const { refreshToken, token } = auth;
-  const client = useMemo(() => createUserClient({ baseUrl: apiBaseUrl, getUserToken: () => token }), [token]);
+  const client = useMemo(() => createUserClient({ baseUrl: apiBase, getUserToken: () => token }), [token]);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
 

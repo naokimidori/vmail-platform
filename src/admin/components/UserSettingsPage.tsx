@@ -4,12 +4,12 @@ import { MailCheck, Save, UserPlus } from "lucide-react";
 import { createAdminClient } from "../api/adminClient";
 import type { AdminUserSettings } from "../api/types";
 import { useAdminAuth } from "../auth/AdminAuthContext";
-import { adminApiBaseUrl } from "../../config/env";
+import { apiBaseUrl } from "../../config/env";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { ErrorState, LoadingState } from "./States";
 
-const apiBaseUrl = adminApiBaseUrl;
+const apiBase = apiBaseUrl;
 
 export function UserSettingsPage() {
   const auth = useAdminAuth();
@@ -18,7 +18,7 @@ export function UserSettingsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const client = useMemo(
-    () => createAdminClient({ baseUrl: apiBaseUrl, getCredential: () => auth.credential }),
+    () => createAdminClient({ baseUrl: apiBase, getCredential: () => auth.credential }),
     [auth.credential],
   );
 
@@ -57,11 +57,12 @@ export function UserSettingsPage() {
 
   return (
     <section className="grid gap-6">
-      <Card className="hero-card">
+      <Card>
         <CardHeader>
-          <p className="section-kicker">Mail Access</p>
-          <CardTitle className="text-3xl">Mail Setting</CardTitle>
-          <CardDescription>Control ordinary-user account creation and email verification.</CardDescription>
+          <CardTitle className="text-xl">Mail Setting</CardTitle>
+          <CardDescription className="mt-1">
+            Control ordinary-user account creation and email verification.
+          </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-5">
           <SettingSwitch
@@ -78,8 +79,8 @@ export function UserSettingsPage() {
             label="Email verification code"
             onChange={(checked) => update({ mailVerificationEnabled: checked })}
           />
-          {notice ? <p className="text-sm font-bold text-emerald-800">{notice}</p> : null}
-          {error ? <p role="alert" className="text-sm font-bold text-red-700">{error}</p> : null}
+          {notice ? <p className="text-sm font-medium text-success">{notice}</p> : null}
+          {error ? <p role="alert" className="text-sm font-medium text-red-700">{error}</p> : null}
           <div>
             <Button className="h-11 px-5" disabled={isSaving} onClick={save}>
               <Save className="h-4 w-4" aria-hidden="true" />
@@ -106,14 +107,14 @@ function SettingSwitch({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <article className="flex flex-wrap items-center justify-between gap-4 rounded-[22px] border border-white/70 bg-white/46 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.82)]">
+    <article className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-muted/40 p-5">
       <div className="flex min-w-0 items-center gap-4">
-        <div className="grid h-11 w-11 flex-none place-items-center rounded-[16px] bg-accent text-accent-foreground">
+        <div className="grid h-11 w-11 flex-none place-items-center rounded-lg bg-muted text-muted-foreground">
           <Icon className="h-5 w-5" aria-hidden="true" />
         </div>
         <div className="min-w-0">
-          <strong className="block text-xl">{label}</strong>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{description}</p>
+          <strong className="block text-base font-semibold text-foreground">{label}</strong>
+          <p className="mt-0.5 max-w-2xl text-sm text-muted-foreground">{description}</p>
         </div>
       </div>
       <div className="flex flex-none items-center gap-3">
@@ -123,22 +124,22 @@ function SettingSwitch({
           aria-checked={checked}
           aria-label={label}
           className={[
-            "relative h-7 w-12 rounded-full border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            "relative h-6 w-11 rounded-full border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             checked
-              ? "border-primary bg-primary"
-              : "border-[#c8d0df] bg-white/76 shadow-[inset_0_1px_2px_rgba(38,48,68,0.12)]",
+              ? "border-foreground bg-foreground"
+              : "border-border bg-muted",
           ].join(" ")}
           onClick={() => onChange(!checked)}
         >
           <span
             aria-hidden="true"
             className={[
-              "absolute top-1 grid h-5 w-5 place-items-center rounded-full bg-white shadow-[0_2px_6px_rgba(38,48,68,0.22)] transition-transform duration-200",
-              checked ? "translate-x-5" : "translate-x-1",
+              "absolute top-0.5 grid h-4 w-4 place-items-center rounded-full bg-white shadow-sm transition-transform duration-200",
+              checked ? "translate-x-6" : "translate-x-0.5",
             ].join(" ")}
           />
         </button>
-        <span className={["w-16 text-sm font-black", checked ? "text-primary" : "text-muted-foreground"].join(" ")}>
+        <span className={["w-16 text-sm font-medium", checked ? "text-foreground" : "text-muted-foreground"].join(" ")}>
           {checked ? "Enabled" : "Disabled"}
         </span>
       </div>

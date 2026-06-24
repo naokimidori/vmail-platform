@@ -1,10 +1,17 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "../App";
 import { ADMIN_CREDENTIAL_STORAGE_KEY } from "../admin/auth/adminAuth";
 import { USER_EMAIL_STORAGE_KEY, USER_TOKEN_STORAGE_KEY } from "../auth/userAuth";
+
+vi.mock("../config/env", () => ({
+  apiBaseUrl: "mock",
+  mailboxDomain: "example.com",
+  mailboxDomains: ["example.com", "vino.cc.cd", "vinoss.us.ci"],
+  publicMailboxUrl: "https://mail.example.com",
+}));
 
 function renderAt(path: string) {
   return render(
@@ -23,9 +30,10 @@ describe("combined user and admin routing", () => {
   it("serves the user login at the root path when no user session exists", () => {
     renderAt("/");
 
-    expect(screen.getByRole("heading", { name: "Temporary mail." })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Log in to V-Mail" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Admin access/i })).toHaveAttribute("href", "/admin");
+    expect(screen.getByRole("heading", { name: "Welcome back" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "V-Mail" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /admin access/i, hidden: true })).toHaveAttribute("href", "/admin");
+    expect(screen.getByRole("link", { name: /go to admin access/i })).toHaveAttribute("href", "/admin");
   });
 
   it("serves the admin login at /admin without requiring a user session", () => {
@@ -53,7 +61,7 @@ describe("combined user and admin routing", () => {
 
     renderAt("/admin");
 
-    expect(await screen.findByText("V-Mail Service")).toBeInTheDocument();
+    expect(await screen.findByText("V-Mail Mailbox")).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Admin navigation" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Dashboard/i })).toHaveAttribute("href", "/admin");
     expect(screen.getByRole("link", { name: /Accounts/i })).toHaveAttribute("href", "/admin/accounts");
@@ -64,7 +72,7 @@ describe("combined user and admin routing", () => {
 
     renderAt("/");
 
-    expect(screen.getByRole("heading", { name: "Log in to V-Mail" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Welcome back" })).toBeInTheDocument();
     expect(screen.queryByText("User Account")).not.toBeInTheDocument();
   });
 });

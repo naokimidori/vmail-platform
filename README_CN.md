@@ -45,7 +45,8 @@ English documentation: [README.md](README.md).
 | --- | --- |
 | `USER_API_BASE_URL` | 普通用户 API Base URL。设置为 `mock` 时使用本地模拟数据。 |
 | `ADMIN_API_BASE_URL` | 管理 API Base URL。设置为 `mock` 时使用本地模拟数据。 |
-| `MAILBOX_DOMAIN` | 创建或预览邮箱地址时使用的域名。 |
+| `MAILBOX_DOMAINS` | UI 支持的邮箱域名列表，使用英文逗号分隔，第一个值作为默认域名。 |
+| `MAILBOX_DOMAIN` | 可选的旧版单域名兜底配置，在未设置 `MAILBOX_DOMAINS` 时使用。 |
 | `PUBLIC_MAILBOX_URL` | 生成邮箱访问链接时使用的公开邮箱地址。 |
 
 本地开发时复制 `.env.example` 为 `.env.local`。

@@ -4,19 +4,19 @@ import { KeyRound, Mail } from "lucide-react";
 
 import { createUserClient } from "../api/userClient";
 import { useUserAuth } from "../auth/UserAuthContext";
-import { userApiBaseUrl } from "../config/env";
+import { apiBaseUrl } from "../config/env";
 import { ErrorState, LoadingState } from "./States";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { TurnstileChallenge } from "./TurnstileChallenge";
 
-const apiBaseUrl = userApiBaseUrl;
+const apiBase = apiBaseUrl;
 
 export function RegisterPage() {
   const auth = useUserAuth();
   const navigate = useNavigate();
-  const client = useMemo(() => createUserClient({ baseUrl: apiBaseUrl, getUserToken: () => auth.token }), [auth.token]);
+  const client = useMemo(() => createUserClient({ baseUrl: apiBase, getUserToken: () => auth.token }), [auth.token]);
   const [settings, setSettings] = useState<{
     registrationEnabled: boolean;
     mailVerificationEnabled: boolean;
@@ -150,7 +150,7 @@ export function RegisterPage() {
       <div className="site-frame grid place-items-center">
         <Card className="hero-card w-full max-w-md overflow-hidden rounded-[28px]">
           <CardHeader className="space-y-4 p-6 pb-4 sm:p-8 sm:pb-4">
-            <div className="grid h-14 w-14 place-items-center rounded-[18px] bg-primary text-primary-foreground shadow-purple">
+            <div className="grid h-14 w-14 place-items-center rounded-2xl bg-foreground text-background shadow-soft">
               <KeyRound className="h-6 w-6" aria-hidden="true" />
             </div>
             <div>
@@ -188,7 +188,7 @@ export function RegisterPage() {
               </Button>
             </form>
             <p className="mt-5 text-center text-sm text-muted-foreground">
-              Already registered? <Link className="font-black text-primary hover:text-primary-hover" to="/login">Log in</Link>
+              Already registered? <Link className="font-medium text-foreground underline-offset-4 hover:underline" to="/login">Log in</Link>
             </p>
           </CardContent>
         </Card>

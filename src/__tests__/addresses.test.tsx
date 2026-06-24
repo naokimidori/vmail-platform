@@ -18,6 +18,13 @@ vi.mock("../api/userClient", () => ({
   }),
 }));
 
+vi.mock("../config/env", () => ({
+  apiBaseUrl: "mock",
+  mailboxDomain: "example.com",
+  mailboxDomains: ["example.com", "vino.cc.cd", "vinoss.us.ci"],
+  publicMailboxUrl: "https://mail.example.com",
+}));
+
 describe("addresses", () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -51,10 +58,11 @@ describe("addresses", () => {
 
     await user.click(await screen.findByRole("button", { name: "New mailbox" }));
     await user.type(screen.getByLabelText("Mailbox name"), "new");
+    await user.selectOptions(screen.getByLabelText("Mailbox domain"), "vino.cc.cd");
     await user.click(screen.getByRole("button", { name: "Create mailbox" }));
 
     await waitFor(() =>
-      expect(createAndBindAddress).toHaveBeenCalledWith({ name: "new", domain: "example.com", enableRandomSubdomain: false }),
+      expect(createAndBindAddress).toHaveBeenCalledWith({ name: "new", domain: "vino.cc.cd", enableRandomSubdomain: false }),
     );
     expect(listAddresses).toHaveBeenCalledTimes(2);
   });

@@ -135,7 +135,7 @@ describe("createAdminClient", () => {
       fetcher,
     });
 
-    const account = await client.createAddress({ prefix: "support" });
+    const account = await client.createAddress({ prefix: "support", domain: "vino.cc.cd" });
 
     expect(fetcher).toHaveBeenCalledWith(
       "https://admin.example.test/admin/new_address",
@@ -147,7 +147,7 @@ describe("createAdminClient", () => {
         }),
         body: JSON.stringify({
           name: "support",
-          domain: "example.com",
+          domain: "vino.cc.cd",
           enablePrefix: false,
           enableRandomSubdomain: false,
         }),

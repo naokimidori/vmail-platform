@@ -29,7 +29,7 @@ export interface AdminClient {
   getDashboard(): Promise<DashboardData>;
   listAccountsPage(options?: PaginationOptions): Promise<PaginatedResult<AdminAccount>>;
   listAccounts(): Promise<AdminAccount[]>;
-  getAccount(accountId: string, options?: PaginationOptions): Promise<AccountDetail>;
+  getAccount(email: string, options?: PaginationOptions): Promise<AccountDetail>;
   createAddress(input: CreateAddressInput): Promise<AdminAccount>;
   deleteAddress(addressId: string): Promise<void>;
   getAddressAccessJwt(addressId: string): Promise<string>;
@@ -40,6 +40,7 @@ export interface AdminClient {
 
 export interface CreateAddressInput {
   prefix: string;
+  domain?: string;
 }
 
 export interface PaginationOptions {
@@ -66,6 +67,7 @@ export function createAdminClient(options: AdminClientOptions): AdminClient {
   const fetcher = options.fetcher ?? fetch;
   const baseUrl = options.baseUrl.replace(/\/+$/, "");
   const accountCache = new Map<string, AdminAccount>();
+  let lastLatencyMs: number | null = null;
 
   async function request<T>(
     path: string,
@@ -83,6 +85,7 @@ export function createAdminClient(options: AdminClientOptions): AdminClient {
       headers["content-type"] = "application/json";
     }
 
+    const start = nowMs();
     const response = await fetcher(`${baseUrl}${path}`, {
       method,
       headers,
@@ -93,7 +96,9 @@ export function createAdminClient(options: AdminClientOptions): AdminClient {
       throw new AdminApiError(response.status, await getErrorMessage(response));
     }
 
-    return (await response.json()) as T;
+    const data = (await response.json()) as T;
+    lastLatencyMs = Math.round(nowMs() - start);
+    return data;
   }
 
   async function listLiveAccountsPage(pagination: PaginationOptions = {}): Promise<PaginatedResult<AdminAccount>> {
@@ -174,13 +179,13 @@ export function createAdminClient(options: AdminClientOptions): AdminClient {
   }
 
   return {
-    getStatus: async () => normalizeStatus(await request<unknown>("/admin/statistics")),
-    getDashboard: async () => normalizeDashboard(await request<Partial<DashboardData>>("/admin/statistics")),
+    getStatus: async () => normalizeStatus(await request<unknown>("/admin/statistics"), lastLatencyMs),
+    getDashboard: async () => normalizeDashboard(await request<Partial<DashboardData>>("/admin/statistics"), lastLatencyMs),
     listAccountsPage: listLiveAccountsPage,
     listAccounts: listLiveAccounts,
-    getAccount: async (accountId: string, pagination: PaginationOptions = {}) => {
-      const accounts = accountCache.has(accountId) ? Array.from(accountCache.values()) : await listLiveAccounts();
-      const account = accounts.find((item) => item.id === accountId) ?? accounts[0];
+    getAccount: async (email: string, pagination: PaginationOptions = {}) => {
+      const accounts = accountCache.size > 0 ? Array.from(accountCache.values()) : await listLiveAccounts();
+      const account = accounts.find((item) => item.ownerEmail === email) ?? accounts.find((item) => item.id === email);
       if (!account) {
         throw new AdminApiError(404, "Account not found");
       }
@@ -200,11 +205,12 @@ export function createAdminClient(options: AdminClientOptions): AdminClient {
     },
     createAddress: async (input: CreateAddressInput) => {
       const prefix = normalizeAddressPrefix(input.prefix);
+      const domain = input.domain ?? mailboxDomain;
       const account = normalizeAddressAccount(await request<unknown>("/admin/new_address", {
         method: "POST",
         body: {
           name: prefix,
-          domain: mailboxDomain,
+          domain,
           enablePrefix: false,
           enableRandomSubdomain: false,
         },
@@ -277,9 +283,9 @@ function createMockClient(): AdminClient {
       };
     },
     listAccounts: async () => clone(accounts),
-    getAccount: async (accountId: string, pagination: PaginationOptions = {}) => {
-      const account = accounts.find((item) => item.id === accountId);
-      const isBuiltInMockAccount = mockAccounts.some((item) => item.id === accountId);
+    getAccount: async (email: string, pagination: PaginationOptions = {}) => {
+      const account = accounts.find((item) => item.ownerEmail === email) ?? accounts.find((item) => item.id === email);
+      const isBuiltInMockAccount = mockAccounts.some((item) => item.ownerEmail === email || item.id === email);
       const detail = account && !isBuiltInMockAccount
         ? {
             account: clone(account),
@@ -289,7 +295,7 @@ function createMockClient(): AdminClient {
             messagesOffset: 0,
             activity: [],
           }
-        : clone(getMockAccountDetail(accountId));
+        : clone(getMockAccountDetail(email));
       const limit = pagination.limit ?? 20;
       const offset = pagination.offset ?? 0;
       return {
@@ -301,7 +307,7 @@ function createMockClient(): AdminClient {
     },
     createAddress: async (input: CreateAddressInput) => {
       const prefix = normalizeAddressPrefix(input.prefix);
-      const email = buildAddressEmail(prefix);
+      const email = buildAddressEmail(prefix, input.domain);
       const createdAt = new Date().toISOString();
       const account: AdminAccount = {
         id: `mock-${prefix}`,
@@ -345,11 +351,14 @@ function normalizeAddressPrefix(prefix: string) {
   return prefix.trim().toLowerCase();
 }
 
-function buildAddressEmail(prefix: string) {
-  return `${prefix}@${mailboxDomain}`;
+function buildAddressEmail(prefix: string, domain = mailboxDomain) {
+  return `${prefix}@${domain}`;
 }
 
-function normalizeDashboard(data: Partial<DashboardData> | Record<string, unknown>): DashboardData {
+function normalizeDashboard(
+  data: Partial<DashboardData> | Record<string, unknown>,
+  fallbackLatencyMs: number | null = null,
+): DashboardData {
   const record = isRecord(data) ? data : {};
   const dashboard = data as Partial<DashboardData>;
 
@@ -358,23 +367,16 @@ function normalizeDashboard(data: Partial<DashboardData> | Record<string, unknow
     mailflow: Array.isArray(dashboard.mailflow) ? dashboard.mailflow : createMailflow(record),
     activity: Array.isArray(dashboard.activity) ? dashboard.activity : [],
     recentMessages: Array.isArray(dashboard.recentMessages) ? dashboard.recentMessages : [],
-    system:
-      (isSystemStatus(dashboard.system) ? dashboard.system : undefined) ??
-      ({
-        status: "offline",
-        checkedAt: "",
-        latencyMs: null,
-        message: "Status unavailable.",
-      } satisfies SystemStatus),
+    system: (isSystemStatus(dashboard.system) ? dashboard.system : undefined) ?? normalizeStatus(data, fallbackLatencyMs),
   };
 }
 
-function normalizeStatus(data: unknown): SystemStatus {
+function normalizeStatus(data: unknown, fallbackLatencyMs: number | null = null): SystemStatus {
   const record = isRecord(data) ? data : {};
   return {
     status: "healthy",
     checkedAt: new Date().toISOString(),
-    latencyMs: typeof record.latencyMs === "number" ? record.latencyMs : null,
+    latencyMs: typeof record.latencyMs === "number" ? record.latencyMs : fallbackLatencyMs,
     message: "Admin statistics endpoint is reachable.",
   };
 }
@@ -812,6 +814,13 @@ function clone<T>(value: T): T {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function nowMs(): number {
+  if (typeof performance !== "undefined" && typeof performance.now === "function") {
+    return performance.now();
+  }
+  return Date.now();
 }
 
 function isSystemStatus(value: unknown): value is SystemStatus {

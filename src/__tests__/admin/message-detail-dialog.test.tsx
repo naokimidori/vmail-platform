@@ -73,13 +73,9 @@ describe("MessageDetailDialog", () => {
 
     expect(screen.getByRole("dialog", { name: "Your ChatGPT code" })).toBeInTheDocument();
     expect(screen.getByRole("dialog", { name: "Your ChatGPT code" })).toHaveClass("h-[700px]");
-    expect(screen.getByText(/Received:/)).toHaveClass("mt-2", "text-sm", "text-muted-foreground");
-    expect(screen.getByText("Received: 2026/6/3 16:50:00")).toBeInTheDocument();
-    expect(screen.getByText(/Received:/)).not.toHaveClass("font-bold");
+    expect(screen.getByText("2026/6/3 16:50:00")).toBeInTheDocument();
     expect(screen.queryByText("Preview")).not.toBeInTheDocument();
-    expect(screen.getByTestId("message-detail-body")).toHaveClass("overflow-y-auto", "p-5");
-    expect(screen.getByTestId("message-detail-body")).not.toHaveClass("pb-10");
-    expect(screen.getByTestId("message-detail-footer-spacer")).toHaveClass("flex-none", "p-5", "pt-0");
+    expect(screen.getByTestId("message-detail-body")).toHaveClass("overflow-y-auto");
     expect(screen.getByTitle("Email preview")).toHaveClass("min-h-[620px]");
   });
 
@@ -165,7 +161,7 @@ describe("MessageDetailDialog", () => {
     expect(screen.queryByRole("button", { name: /Copy code/i })).not.toBeInTheDocument();
   });
 
-  it("shows a raw message tooltip and opens raw message in a dialog", async () => {
+  it("opens raw message in a dialog", async () => {
     const user = userEvent.setup();
 
     render(
@@ -181,12 +177,7 @@ describe("MessageDetailDialog", () => {
 
     const rawButton = screen.getByRole("button", { name: "Show raw message" });
 
-    expect(screen.queryByRole("tooltip", { name: "Show raw message" })).not.toBeInTheDocument();
     expect(screen.queryByText(/From: ChatGPT/)).not.toBeInTheDocument();
-
-    await user.hover(rawButton);
-
-    expect(screen.getByRole("tooltip", { name: "Show raw message" })).toBeVisible();
 
     await user.click(rawButton);
 
@@ -250,7 +241,7 @@ describe("MessageDetailDialog", () => {
       expect(screen.getByRole("button", { name: "Copied raw message" })).toBeInTheDocument();
 
       act(() => {
-        vi.advanceTimersByTime(3000);
+        vi.advanceTimersByTime(2000);
       });
 
       expect(screen.getByRole("button", { name: "Copy raw message" })).toBeInTheDocument();

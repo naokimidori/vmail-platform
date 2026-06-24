@@ -1,7 +1,7 @@
 import type { MouseEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, Copy, HelpCircle, Loader2, X } from "lucide-react";
+import { Check, Code, Copy, Loader2, X } from "lucide-react";
 
 import type { MailMessage } from "../api/types";
 import { formatDatabaseDateTime } from "../utils/date";
@@ -9,7 +9,6 @@ import { extractMessageVerificationCode } from "../utils/verificationCode";
 import { Button } from "./ui/button";
 
 const messageDetailOpenDelayMs = 24;
-const copyFeedbackDurationMs = 3000;
 const emailPreviewSandbox = "allow-popups allow-popups-to-escape-sandbox";
 
 export function useMessageDetailTransition(delayMs = messageDetailOpenDelayMs) {
@@ -54,10 +53,10 @@ export function MessageDetailLoading() {
     <div className="pointer-events-none fixed inset-0 z-50 grid place-items-center px-4 py-6" role="presentation">
       <div
         aria-label="Loading message detail"
-        className="inline-flex items-center gap-2 rounded-[16px] border border-white/80 bg-white/75 px-4 py-3 text-sm font-black text-foreground shadow-glass backdrop-blur-xl"
+        className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium text-foreground shadow-soft"
         role="status"
       >
-        <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden="true" />
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
         <span>Loading message...</span>
       </div>
     </div>,
@@ -67,12 +66,7 @@ export function MessageDetailLoading() {
 
 export function MessageDetailDialog({ message, onClose }: { message: MailMessage; onClose: () => void }) {
   const [showRawMessage, setShowRawMessage] = useState(false);
-  const [showRawTooltip, setShowRawTooltip] = useState(false);
-  const {
-    isCopied: isVerificationCodeCopied,
-    resetCopied: resetVerificationCodeCopied,
-    showCopied: showVerificationCodeCopied,
-  } = useCopyFeedback();
+  const [codeCopyState, setCodeCopyState] = useState<"idle" | "copied" | "error">("idle");
   const rawMessage = message.rawContent ?? message.preview;
   const previewHtml = useMemo(
     () => (message.htmlContent ? prepareHtmlEmailPreview(message.htmlContent) : undefined),
@@ -81,23 +75,36 @@ export function MessageDetailDialog({ message, onClose }: { message: MailMessage
   const verificationCode = useMemo(() => extractMessageVerificationCode(message), [message]);
 
   useEffect(() => {
-    resetVerificationCodeCopied();
-  }, [resetVerificationCodeCopied, verificationCode]);
+    setCodeCopyState("idle");
+  }, [verificationCode]);
+
+  useEffect(() => {
+    if (codeCopyState === "idle") return undefined;
+    const timer = window.setTimeout(() => setCodeCopyState("idle"), 2000);
+    return () => window.clearTimeout(timer);
+  }, [codeCopyState]);
 
   const copyVerificationCode = async (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
     if (!verificationCode) return;
 
-    if (await copyToClipboard(verificationCode)) {
-      showVerificationCodeCopied();
+    try {
+      if (!navigator.clipboard) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(verificationCode);
+      setCodeCopyState("copied");
+    } catch {
+      setCodeCopyState("error");
     }
   };
+
+  const isCodeCopied = codeCopyState === "copied";
+  const isCodeError = codeCopyState === "error";
 
   const overlay = (
     <div
       data-testid="message-detail-overlay"
-      className="fixed inset-0 z-50 grid place-items-center bg-[#151a27]/35 px-4 py-6 backdrop-blur-sm"
+      className="fixed inset-0 z-50 grid place-items-center bg-foreground/40 px-4 py-6"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
@@ -105,95 +112,95 @@ export function MessageDetailDialog({ message, onClose }: { message: MailMessage
     >
       <article
         aria-labelledby="message-detail-title"
-        className="flex h-[700px] max-h-[calc(100vh-48px)] w-full max-w-4xl flex-col overflow-hidden rounded-[24px] border border-white/70 bg-card shadow-frame backdrop-blur-xl"
+        className="flex h-[700px] max-h-[calc(100vh-48px)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-frame"
         role="dialog"
         aria-modal="true"
       >
-        <header className="flex items-start justify-between gap-4 border-b border-border p-5">
-          <div className="min-w-0">
-            <h2 id="message-detail-title" className="text-xl font-black">
-              {message.subject}
-            </h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {message.from.name} &lt;{message.from.email}&gt; to {message.to.map((item) => item.email).join(", ")}
-            </p>
+        <header className="flex items-start justify-between gap-4 border-b border-border/60 p-5">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 id="message-detail-title" className="text-base font-semibold text-foreground">
+                {message.subject}
+              </h2>
+              {verificationCode ? (
+                <Button
+                  aria-label={isCodeCopied ? `Copied ${verificationCode}` : `Copy code ${verificationCode}`}
+                  className={[
+                    "h-7 flex-none gap-1.5 rounded-full px-2.5 text-xs font-semibold transition-colors duration-150",
+                    isCodeCopied
+                      ? "bg-success/15 text-success hover:bg-success/15"
+                      : isCodeError
+                        ? "border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                        : "border border-accent/20 bg-accent/10 text-accent hover:bg-accent/15",
+                  ].join(" ")}
+                  onClick={copyVerificationCode}
+                  size="sm"
+                  title={isCodeCopied ? "Copied" : `Copy code ${verificationCode}`}
+                  type="button"
+                  variant="secondary"
+                >
+                  <span className="font-mono">{verificationCode}</span>
+                  {isCodeCopied ? (
+                    <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
+                  ) : (
+                    <Copy className="h-3 w-3" aria-hidden="true" />
+                  )}
+                </Button>
+              ) : null}
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              <span className="truncate">
+                {message.from.name} &lt;{message.from.email}&gt;
+              </span>
+              <span className="flex-none text-muted-foreground/60">to</span>
+              <span className="truncate">
+                {message.to.map((item) => item.email).join(", ")}
+              </span>
+            </div>
             {message.receivedAt ? (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Received: {formatDatabaseDateTime(message.receivedAt)}
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                {formatDatabaseDateTime(message.receivedAt)}
               </p>
             ) : null}
           </div>
           <div className="flex flex-none items-center gap-1">
-            {verificationCode ? (
-              <Button
-                aria-label={
-                  isVerificationCodeCopied ? `Copied code ${verificationCode}` : `Copy code ${verificationCode}`
-                }
-                className={isVerificationCodeCopied ? "text-primary" : "text-muted-foreground"}
-                onClick={copyVerificationCode}
-                size="icon"
-                title={isVerificationCodeCopied ? `Copied code ${verificationCode}` : `Copy code ${verificationCode}`}
-                type="button"
-                variant="ghost"
-              >
-                {isVerificationCodeCopied ? (
-                  <Check className="h-4 w-4" aria-hidden="true" />
-                ) : (
-                  <Copy className="h-4 w-4" aria-hidden="true" />
-                )}
-              </Button>
-            ) : null}
-            <div
-              className="relative"
-              onBlur={() => setShowRawTooltip(false)}
-              onFocus={() => setShowRawTooltip(true)}
-              onMouseEnter={() => setShowRawTooltip(true)}
-              onMouseLeave={() => setShowRawTooltip(false)}
+            <Button
+              aria-label="Show raw message"
+              className="h-8 w-8 rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              onClick={() => setShowRawMessage(true)}
+              size="icon"
+              title="View raw message source"
+              type="button"
+              variant="ghost"
             >
-              <Button
-                aria-describedby={showRawTooltip ? "raw-message-tooltip" : undefined}
-                aria-label="Show raw message"
-                className="text-muted-foreground"
-                onClick={() => {
-                  setShowRawTooltip(false);
-                  setShowRawMessage(true);
-                }}
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                <HelpCircle className="h-4 w-4" aria-hidden="true" />
-              </Button>
-              {showRawTooltip ? (
-                <div
-                  className="pointer-events-none absolute right-0 top-12 z-[60] whitespace-nowrap rounded-[12px] bg-[#151a27] px-3 py-2 text-xs font-bold text-white shadow-[0_8px_18px_rgba(21,26,39,0.18)]"
-                  id="raw-message-tooltip"
-                  role="tooltip"
-                >
-                  Show raw message
-                </div>
-              ) : null}
-            </div>
-            <Button type="button" variant="ghost" size="icon" aria-label="Close message detail" onClick={onClose}>
-              <X className="h-5 w-5" aria-hidden="true" />
+              <Code className="h-4 w-4" aria-hidden="true" />
+            </Button>
+            <Button
+              className="h-8 w-8 rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Close message detail"
+              onClick={onClose}
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
             </Button>
           </div>
         </header>
-        <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-5" data-testid="message-detail-body">
+        <div className="grid min-h-0 flex-1 overflow-y-auto" data-testid="message-detail-body">
           <section>
             {previewHtml ? (
               <iframe
-                className="min-h-[620px] w-full rounded-[22px] border border-white/70 bg-white"
+                className="min-h-[620px] w-full border-0 bg-white"
                 sandbox={emailPreviewSandbox}
                 srcDoc={previewHtml}
                 title="Email preview"
               />
             ) : (
-              <p className="rounded-[22px] bg-white/55 p-4 text-sm leading-6">{message.preview}</p>
+              <p className="p-5 text-sm leading-6 text-foreground">{message.preview}</p>
             )}
           </section>
         </div>
-        <div className="flex-none p-5 pt-0" data-testid="message-detail-footer-spacer" aria-hidden="true" />
         {showRawMessage ? <RawMessageDialog rawMessage={rawMessage} onClose={() => setShowRawMessage(false)} /> : null}
       </article>
     </div>
@@ -203,20 +210,33 @@ export function MessageDetailDialog({ message, onClose }: { message: MailMessage
 }
 
 function RawMessageDialog({ rawMessage, onClose }: { rawMessage: string; onClose: () => void }) {
-  const { isCopied: isRawMessageCopied, showCopied: showRawMessageCopied } = useCopyFeedback();
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
+
+  useEffect(() => {
+    if (copyState === "idle") return undefined;
+    const timer = window.setTimeout(() => setCopyState("idle"), 2000);
+    return () => window.clearTimeout(timer);
+  }, [copyState]);
 
   const copyRawMessage = async (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
 
-    if (await copyToClipboard(rawMessage)) {
-      showRawMessageCopied();
+    try {
+      if (!navigator.clipboard) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(rawMessage);
+      setCopyState("copied");
+    } catch {
+      setCopyState("error");
     }
   };
 
+  const isCopied = copyState === "copied";
+  const isError = copyState === "error";
+
   return (
     <div
-      className="absolute inset-0 z-[55] grid place-items-center bg-[#151a27]/28 px-4 py-6 backdrop-blur-sm"
+      className="absolute inset-0 z-[55] grid place-items-center bg-foreground/30 px-4 py-6"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -225,11 +245,11 @@ function RawMessageDialog({ rawMessage, onClose }: { rawMessage: string; onClose
       <article
         aria-labelledby="raw-message-title"
         aria-modal="true"
-        className="flex max-h-[72vh] w-full max-w-3xl flex-col overflow-hidden rounded-[20px] border border-white/70 bg-card shadow-frame backdrop-blur-xl"
+        className="flex max-h-[72vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-frame"
         role="dialog"
       >
-        <header className="flex items-center justify-between gap-4 border-b border-border p-4">
-          <h3 className="text-base font-black" id="raw-message-title">
+        <header className="flex items-center justify-between gap-4 border-b border-border/60 p-4">
+          <h3 className="text-base font-semibold" id="raw-message-title">
             Raw message
           </h3>
           <div className="flex flex-none items-center gap-1">
@@ -237,18 +257,32 @@ function RawMessageDialog({ rawMessage, onClose }: { rawMessage: string; onClose
               type="button"
               variant="ghost"
               size="icon"
-              aria-label={isRawMessageCopied ? "Copied raw message" : "Copy raw message"}
-              className={isRawMessageCopied ? "text-primary" : "text-muted-foreground"}
+              aria-label={isCopied ? "Copied raw message" : "Copy raw message"}
+              className={[
+                "h-8 w-8 rounded-md transition-colors duration-150",
+                isCopied
+                  ? "bg-success/15 text-success hover:bg-success/15"
+                  : isError
+                    ? "text-red-600 hover:bg-red-50 hover:text-red-600"
+                    : "text-muted-foreground hover:bg-emerald-50 hover:text-emerald-600",
+              ].join(" ")}
               onClick={copyRawMessage}
-              title={isRawMessageCopied ? "Copied raw message" : "Copy raw message"}
+              title={isCopied ? "Copied" : "Copy raw message"}
             >
-              {isRawMessageCopied ? (
-                <Check className="h-4 w-4" aria-hidden="true" />
+              {isCopied ? (
+                <Check className="h-4 w-4" strokeWidth={3} aria-hidden="true" />
               ) : (
                 <Copy className="h-4 w-4" aria-hidden="true" />
               )}
             </Button>
-            <Button type="button" variant="ghost" size="icon" aria-label="Close raw message" onClick={onClose}>
+            <Button
+              className="h-8 w-8 rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Close raw message"
+              onClick={onClose}
+            >
               <X className="h-4 w-4" aria-hidden="true" />
             </Button>
           </div>
@@ -259,46 +293,6 @@ function RawMessageDialog({ rawMessage, onClose }: { rawMessage: string; onClose
       </article>
     </div>
   );
-}
-
-function useCopyFeedback(durationMs = copyFeedbackDurationMs) {
-  const [isCopied, setIsCopied] = useState(false);
-  const timerRef = useRef<number | null>(null);
-
-  const clearTimer = useCallback(() => {
-    if (timerRef.current !== null) {
-      window.clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  }, []);
-
-  const resetCopied = useCallback(() => {
-    clearTimer();
-    setIsCopied(false);
-  }, [clearTimer]);
-
-  const showCopied = useCallback(() => {
-    clearTimer();
-    setIsCopied(true);
-    timerRef.current = window.setTimeout(() => {
-      setIsCopied(false);
-      timerRef.current = null;
-    }, durationMs);
-  }, [clearTimer, durationMs]);
-
-  useEffect(() => clearTimer, [clearTimer]);
-
-  return { isCopied, resetCopied, showCopied };
-}
-
-async function copyToClipboard(value: string) {
-  try {
-    if (!navigator.clipboard) return false;
-    await navigator.clipboard.writeText(value);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 function prepareHtmlEmailPreview(html: string) {

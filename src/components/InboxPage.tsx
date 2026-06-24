@@ -4,19 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import type { BoundAddress, ParsedMail, RawMail } from "../api/types";
 import { createUserClient } from "../api/userClient";
 import { useUserAuth } from "../auth/UserAuthContext";
-import { userApiBaseUrl } from "../config/env";
+import { apiBaseUrl } from "../config/env";
 import { EmptyState, ErrorState, LoadingState } from "./States";
 import { MessageDetailDialog } from "./MessageDetailDialog";
 import { SectionHeader } from "./UserShell";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 
-const apiBaseUrl = userApiBaseUrl;
+const apiBase = apiBaseUrl;
 const pageSize = 20;
 
 export function InboxPage() {
   const auth = useUserAuth();
-  const client = useMemo(() => createUserClient({ baseUrl: apiBaseUrl, getUserToken: () => auth.token }), [auth.token]);
+  const client = useMemo(() => createUserClient({ baseUrl: apiBase, getUserToken: () => auth.token }), [auth.token]);
   const [addresses, setAddresses] = useState<BoundAddress[] | null>(null);
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [mails, setMails] = useState<RawMail[] | null>(null);
@@ -110,7 +110,7 @@ export function InboxPage() {
                   <button
                     className={`w-full rounded-[14px] border px-3 py-2 text-left text-sm font-black transition ${
                       address.id === selectedAddress?.id
-                        ? "border-white/70 bg-primary text-primary-foreground shadow-purple"
+                        ? "border-border bg-muted text-foreground"
                         : "border-white/70 bg-white/58 text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.82)] hover:bg-white/72"
                     }`}
                     key={address.id}

@@ -1,204 +1,325 @@
-import { useEffect, useState } from "react";
-import { Mail, Server, Users } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Inbox, Mail, RefreshCw, Users } from "lucide-react";
 
 import { createAdminClient } from "../api/adminClient";
-import type { DashboardData } from "../api/types";
+import type { DashboardData, SystemHealth } from "../api/types";
 import { useAdminAuth } from "../auth/AdminAuthContext";
-import { adminApiBaseUrl, mailboxDomain } from "../../config/env";
+import { apiBaseUrl } from "../../config/env";
+import { formatBeijingDateTime } from "../utils/date";
 import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { ErrorState, LoadingState } from "./States";
 
-const apiBaseUrl = adminApiBaseUrl;
+const apiBase = apiBaseUrl;
+const autoRefreshIntervalMs = 30_000;
 
 export function Dashboard() {
   const auth = useAdminAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const cancelledRef = useRef(false);
+
+  const refresh = useCallback(
+    async (silent: boolean) => {
+      if (cancelledRef.current) return;
+      if (!silent) setIsRefreshing(true);
+      setError(null);
+      try {
+        const client = createAdminClient({ baseUrl: apiBase, getCredential: () => auth.credential });
+        const next = await client.getDashboard();
+        if (cancelledRef.current) return;
+        setData(next);
+      } catch {
+        if (cancelledRef.current) return;
+        if (!silent) setError("Unable to load dashboard data.");
+      } finally {
+        if (cancelledRef.current) return;
+        if (!silent) setIsRefreshing(false);
+      }
+    },
+    [auth.credential],
+  );
 
   useEffect(() => {
-    const client = createAdminClient({ baseUrl: apiBaseUrl, getCredential: () => auth.credential });
-    setData(null);
-    setError(null);
-    client
-      .getDashboard()
-      .then(setData)
-      .catch(() => setError("Unable to load dashboard data."));
-  }, [auth.credential]);
+    cancelledRef.current = false;
+    void refresh(false);
+    const timer = window.setInterval(() => void refresh(true), autoRefreshIntervalMs);
+    return () => {
+      cancelledRef.current = true;
+      window.clearInterval(timer);
+    };
+  }, [refresh]);
 
   if (error) return <ErrorState message={error} />;
   if (!data) return <LoadingState label="Loading dashboard" />;
 
   return (
-    <section className="grid gap-6 xl:grid-cols-[minmax(320px,0.92fr)_minmax(0,1.35fr)_minmax(280px,0.8fr)]">
-      <div className="grid gap-6">
-        <Card className="hero-card overflow-hidden p-0" data-testid="dashboard-hero-card">
-          <CardContent className="grid min-h-[420px] content-between p-7">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="section-kicker">Live service</p>
-                <h1 className="text-[clamp(2.2rem,4vw,4.8rem)] font-black leading-[0.96] text-foreground">
-                  V-Mail Service
-                </h1>
-              </div>
-              <Badge variant="accent">LIVE</Badge>
-            </div>
+    <section className="grid gap-6">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Dashboard</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Service health and mailbox activity.</p>
+        </div>
+        <Button
+          aria-label="Refresh dashboard"
+          className="gap-2"
+          disabled={isRefreshing}
+          onClick={() => void refresh(false)}
+          size="sm"
+          variant="secondary"
+        >
+          <RefreshCw className={isRefreshing ? "h-4 w-4 animate-spin" : "h-4 w-4"} aria-hidden="true" />
+          Refresh
+        </Button>
+      </header>
 
-            <div className="hero-orbit my-6" aria-hidden="true">
-              <div className="z-10 grid h-24 w-24 place-items-center rounded-full border-[3px] border-white/80 bg-gradient-to-br from-[#2a2540] to-primary text-xl font-black text-white shadow-[0_16px_30px_rgba(80,92,118,0.18)]">
-                VM
-              </div>
-              <span className="orbit-chip left-5 top-5">{mailboxDomain}</span>
-              <span className="orbit-chip bottom-6 left-8 bg-[#eaf8ff]/80">Secure</span>
-              <span className="orbit-chip bottom-8 right-6 bg-accent/80 text-accent-foreground">Admin</span>
-            </div>
+      <ServiceHealthCard
+        checkedAt={data.system.checkedAt}
+        latencyMs={data.system.latencyMs}
+        status={data.system.status}
+        systemMessage={data.system.message}
+      />
 
-            <div className="grid grid-cols-2 gap-3">
-              <StatText label="Accounts" value={data.totals.accounts} />
-              <StatText label="Messages" value={data.totals.messages} />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Storage / Volume</CardTitle>
-            <CardDescription>Monthly operational snapshot</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-4xl font-black text-foreground">{formatNumber(data.totals.messages)}</p>
-            <div className="mt-5 h-2 rounded-full bg-white/58">
-              <div className="h-2 w-[72%] rounded-full bg-gradient-to-r from-[#9ee7ff] via-primary to-white" />
-            </div>
-            <div className="mt-6 grid gap-4">
-              <Progress label="Delivered today" value={data.totals.deliveredToday ?? 0} total={30} />
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-6 md:grid-cols-3">
+        <AccountsMetricCard accounts={data.totals.accounts} />
+        <AddressesMetricCard addresses={data.totals.addresses} />
+        <MessagesMetricCard mailflow={data.mailflow} messages={data.totals.messages} />
       </div>
 
-      <div className="grid gap-6">
-        <div className="grid gap-4 md:grid-cols-3">
-          <Metric icon={Users} label="Accounts" value={data.totals.accounts} tone="good" />
-          <Metric icon={Mail} label="Addresses" value={data.totals.addresses} tone="watch" />
-          <Metric icon={Server} label="Messages" value={data.totals.messages} tone="good" />
-        </div>
-
+      {data.mailflow.length >= 2 ? (
         <Card>
-          <CardHeader className="flex-row items-start justify-between">
+          <CardHeader className="flex-row items-start justify-between gap-4">
             <div>
-              <p className="section-kicker">Inbound stream</p>
               <CardTitle>Mailflow</CardTitle>
               <CardDescription>Inbound messages by recent period</CardDescription>
             </div>
-            <span className="rounded-full bg-white/60 px-3 py-1 text-sm font-extrabold text-muted-foreground">Live</span>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-foreground" />
+                Delivered
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-warning" />
+                Failed
+              </span>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="flex h-60 items-end gap-4 overflow-x-auto pb-2">
-              {data.mailflow.map((point) => {
-                const total = point.delivered + point.failed;
-                return (
-                  <div className="grid min-w-10 justify-items-center gap-2" key={point.timestamp}>
-                    <div
-                      className="relative w-7 overflow-hidden rounded-lg bg-[#efe8ff]"
-                      style={{ height: `${Math.max(42, total * 5)}px` }}
-                    >
-                      <span
-                        className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-primary to-[#9ee7ff]"
-                        style={{ height: `${Math.max(16, point.delivered * 3)}px` }}
-                      />
-                    </div>
-                    <small className="text-muted-foreground">
-                      {new Date(point.timestamp).toLocaleTimeString([], { hour: "2-digit" })}
-                    </small>
-                  </div>
-                );
-              })}
-            </div>
+            <MailflowChart points={data.mailflow} />
           </CardContent>
         </Card>
-      </div>
-
-      <div className="grid gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Statistic</CardTitle>
-            <CardDescription>This month</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="mx-auto grid h-40 w-40 place-items-center rounded-full bg-[conic-gradient(#7b48df_0_62%,#9ee7ff_62%_80%,rgba(255,255,255,.62)_80%_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.82)]">
-              <div className="grid h-24 w-24 place-items-center rounded-full bg-white/72 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.82)]">
-                <span className="text-xs text-muted-foreground">
-                  Mail
-                  <strong className="block text-2xl text-foreground">{formatNumber(data.totals.messages)}</strong>
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            {data.activity.map((item) => (
-              <article className="flex gap-3" key={item.id}>
-                <span className="grid h-9 w-9 flex-none place-items-center rounded-[14px] bg-accent text-sm font-black text-accent-foreground">
-                  {item.title.slice(0, 1)}
-                </span>
-                <div>
-                  <strong className="text-sm">{item.title}</strong>
-                  <p className="text-sm leading-6 text-muted-foreground">{item.description}</p>
-                </div>
-              </article>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+      ) : null}
     </section>
   );
 }
 
-function StatText({ label, value }: { label: string; value: number | null }) {
-  return (
-    <div className="rounded-[18px] border border-white/70 bg-white/52 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.82)]">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <strong className="block text-3xl text-foreground">{formatNumber(value)}</strong>
-    </div>
-  );
-}
-
-function Metric({ icon: Icon, label, value, tone }: { icon: typeof Users; label: string; value: number | null; tone: "good" | "watch" }) {
+function ServiceHealthCard({
+  checkedAt,
+  latencyMs,
+  status,
+  systemMessage,
+}: {
+  checkedAt: string;
+  latencyMs: number | null;
+  status: SystemHealth;
+  systemMessage: string;
+}) {
   return (
     <Card>
-      <CardContent className="p-5">
-        <div className="flex items-center justify-between">
-          <Badge variant={tone === "good" ? "accent" : "secondary"}>{tone === "good" ? "+ active" : "watch"}</Badge>
-          <Icon className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+      <CardHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle className="text-xl">V-Mail Mailbox</CardTitle>
+          <HealthBadge status={status} />
         </div>
-        <strong className="mt-4 block text-3xl text-foreground">{formatNumber(value)}</strong>
-        <p className="mt-1 text-sm text-muted-foreground">{label}</p>
+        <CardDescription className="mt-1">
+          {systemMessage || "Mailbox service is reachable."}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <dl className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <dt className="text-xs font-medium text-muted-foreground">Latency</dt>
+            <dd className="mt-1 flex items-center gap-2 text-base font-semibold">
+              {latencyMs !== null ? <LatencyPulse latencyMs={latencyMs} /> : null}
+              <span className={latencyTone(latencyMs)}>{formatLatency(latencyMs)}</span>
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium text-muted-foreground">Last checked</dt>
+            <dd className="mt-1 text-sm font-medium text-foreground">
+              {checkedAt ? formatBeijingDateTime(checkedAt) : "—"}
+            </dd>
+          </div>
+        </dl>
       </CardContent>
     </Card>
   );
 }
 
-function Progress({ label, value, total }: { label: string; value: number; total: number }) {
-  const pct = Math.min(100, Math.round((value / total) * 100));
+function HealthBadge({ status }: { status: SystemHealth }) {
+  if (status === "healthy") return <Badge variant="success">healthy</Badge>;
+  if (status === "degraded") return <Badge variant="warning">degraded</Badge>;
+  return <Badge variant="secondary">offline</Badge>;
+}
+
+function AccountsMetricCard({ accounts }: { accounts: number | null }) {
   return (
-    <div>
-      <div className="flex justify-between text-sm">
-        <strong>{label}</strong>
-        <span className="text-muted-foreground">{pct}%</span>
-      </div>
-      <div className="mt-2 h-2 rounded-full bg-white/58">
-        <div className="h-2 rounded-full bg-primary" style={{ width: `${pct}%` }} />
-      </div>
+    <Card>
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between">
+          <Users className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+          <span className="text-xs text-muted-foreground">all-time</span>
+        </div>
+        <strong className="mt-4 block text-3xl font-semibold text-foreground">{formatNumber(accounts)}</strong>
+        <p className="mt-1 text-sm text-muted-foreground">Mailbox accounts</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AddressesMetricCard({ addresses }: { addresses: number | null }) {
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between">
+          <Inbox className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+          <span className="text-xs text-muted-foreground">addresses</span>
+        </div>
+        <strong className="mt-4 block text-3xl font-semibold text-foreground">{formatNumber(addresses)}</strong>
+        <p className="mt-1 text-sm text-muted-foreground">Mailbox addresses</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MessagesMetricCard({
+  mailflow,
+  messages,
+}: {
+  mailflow: DashboardData["mailflow"];
+  messages: number | null;
+}) {
+  const spark = useMemo(() => {
+    if (mailflow.length === 0) return [] as number[];
+    const max = Math.max(1, ...mailflow.map((point) => point.delivered));
+    return mailflow.map((point) => (point.delivered / max) * 100);
+  }, [mailflow]);
+
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between">
+          <Mail className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+          <span className="text-xs text-muted-foreground">{mailflow.length >= 2 ? "trend" : "total"}</span>
+        </div>
+        <strong className="mt-4 block text-3xl font-semibold text-foreground">{formatNumber(messages)}</strong>
+        <p className="mt-1 text-sm text-muted-foreground">Messages</p>
+        {spark.length >= 2 ? (
+          <Sparkline className="mt-3 h-8" values={spark} />
+        ) : (
+          <p className="mt-3 text-xs text-muted-foreground">No trend yet</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function Sparkline({ className, values }: { className?: string; values: number[] }) {
+  const w = 120;
+  const h = 32;
+  const step = w / (values.length - 1);
+  const points = values
+    .map((v, i) => `${(i * step).toFixed(2)},${(h - (v / 100) * h).toFixed(2)}`)
+    .join(" ");
+  return (
+    <svg
+      className={className}
+      viewBox={`0 0 ${w} ${h}`}
+      preserveAspectRatio="none"
+      role="img"
+      aria-label="Recent delivered trend"
+    >
+      <polyline
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="text-foreground"
+        points={points}
+      />
+    </svg>
+  );
+}
+
+function MailflowChart({ points }: { points: DashboardData["mailflow"] }) {
+  const max = useMemo(() => {
+    const peak = Math.max(0, ...points.map((p) => p.delivered + p.failed));
+    return Math.max(1, peak);
+  }, [points]);
+
+  return (
+    <div className="flex h-56 items-end gap-3 overflow-x-auto pb-1" role="img" aria-label="Mailflow chart">
+      {points.map((point) => {
+        const total = point.delivered + point.failed;
+        const totalHeight = Math.max(4, (total / max) * 200);
+        const deliveredHeight = total > 0 ? (point.delivered / total) * totalHeight : 0;
+        const failedHeight = totalHeight - deliveredHeight;
+        const stamp = new Date(point.timestamp);
+        const label = `${stamp.getHours().toString().padStart(2, "0")}:${stamp.getMinutes().toString().padStart(2, "0")}`;
+        return (
+          <div className="grid w-6 flex-none justify-items-center gap-1" key={point.timestamp}>
+            <div
+              className="flex h-52 w-2 flex-col-reverse overflow-hidden rounded-sm bg-muted"
+              style={{ height: `${totalHeight}px` }}
+            >
+              <div className="w-full bg-foreground" style={{ height: `${deliveredHeight}px` }} />
+              <div className="w-full bg-warning" style={{ height: `${failedHeight}px` }} />
+            </div>
+            <small className="text-[10px] text-muted-foreground">{label}</small>
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-function formatNumber(value: number | null) {
-  return value === null ? "N/A" : new Intl.NumberFormat().format(value);
+function formatNumber(value: number | null): string {
+  return value === null ? "—" : new Intl.NumberFormat().format(value);
+}
+
+function formatLatency(value: number | null): string {
+  if (value === null) return "—";
+  if (value < 1000) return `${value} ms`;
+  return `${(value / 1000).toFixed(2)} s`;
+}
+
+function latencyTone(value: number | null): string {
+  if (value === null) return "text-muted-foreground";
+  if (value < 1000) return "text-success";
+  if (value < 3000) return "text-warning";
+  return "text-red-600";
+}
+
+function latencyDotBg(value: number): string {
+  if (value < 1000) return "bg-success";
+  if (value < 3000) return "bg-warning";
+  return "bg-red-600";
+}
+
+function LatencyPulse({ latencyMs }: { latencyMs: number }) {
+  const dot = latencyDotBg(latencyMs);
+  return (
+    <span aria-hidden="true" className="relative inline-flex h-2.5 w-2.5">
+      <span
+        className={[
+          "absolute inset-0 inline-flex rounded-full opacity-75 animate-ping motion-reduce:animate-none",
+          dot,
+        ].join(" ")}
+      />
+      <span className={["relative inline-flex h-2.5 w-2.5 rounded-full", dot].join(" ")} />
+    </span>
+  );
 }

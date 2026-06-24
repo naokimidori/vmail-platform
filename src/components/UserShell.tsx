@@ -4,6 +4,7 @@ import { NavLink, Outlet } from "react-router-dom";
 
 import { useUserAuth } from "../auth/UserAuthContext";
 import { Button } from "./ui/button";
+import { VmailLogo } from "./ui/vmail-logo";
 
 const navItems = [
   { to: "/", label: "Mailboxes", icon: Mail },
@@ -20,9 +21,7 @@ export function UserShell() {
         <div className="site-layer grid min-h-[calc(100vh-76px)] grid-rows-[auto_minmax(0,1fr)] gap-8">
           <header className="top-nav">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="grid h-10 w-10 place-items-center rounded-[16px] bg-primary text-primary-foreground shadow-purple">
-                <Mail className="h-5 w-5" aria-hidden="true" />
-              </div>
+              <VmailLogo className="h-10 w-10" />
               <div className="min-w-0">
                 <p className="section-kicker mb-0">V-Mail Portal</p>
                 <strong className="block truncate text-lg font-black text-foreground">V-MAIL</strong>

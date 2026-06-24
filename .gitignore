@@ -37,6 +37,32 @@ user/tailwind.config.d.ts
 user/vitest.setup.js
 user/vitest.setup.d.ts
 
+# Screenshots and temporary files
+*.png
+*.jpg
+*.jpeg
+*.gif
+tmp/
+.claude/
+vite.config.js
+vite.config.d.ts
+tailwind.config.js
+tailwind.config.d.ts
+vitest.setup.js
+vitest.setup.d.ts
+admin/vite.config.js
+admin/vite.config.d.ts
+admin/tailwind.config.js
+admin/tailwind.config.d.ts
+admin/vitest.setup.js
+admin/vitest.setup.d.ts
+user/vite.config.js
+user/vite.config.d.ts
+user/tailwind.config.js
+user/tailwind.config.d.ts
+user/vitest.setup.js
+user/vitest.setup.d.ts
+
 # OS and local tooling
 .DS_Store
 *.log

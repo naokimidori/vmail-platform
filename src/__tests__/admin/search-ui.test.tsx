@@ -60,11 +60,7 @@ describe("SearchPage", () => {
     expect(screen.getByRole("dialog", { name: "Login from a new device" })).toBeInTheDocument();
     expect(screen.getByText("A new device logged into your PayPal account.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Copy code/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("tooltip", { name: "Show raw message" })).not.toBeInTheDocument();
     expect(screen.queryByText(/From: PayPal/)).not.toBeInTheDocument();
-
-    fireEvent.mouseEnter(screen.getByRole("button", { name: "Show raw message" }));
-    expect(screen.getByRole("tooltip", { name: "Show raw message" })).toBeVisible();
 
     fireEvent.click(screen.getByRole("button", { name: "Show raw message" }));
 

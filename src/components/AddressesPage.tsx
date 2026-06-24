@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { BoundAddress } from "../api/types";
 import { createUserClient } from "../api/userClient";
 import { useUserAuth } from "../auth/UserAuthContext";
-import { mailboxDomain, userApiBaseUrl } from "../config/env";
+import { apiBaseUrl, mailboxDomain, mailboxDomains } from "../config/env";
 import { EmptyState, ErrorState, LoadingState } from "./States";
 import { SectionHeader } from "./UserShell";
 import { Badge } from "./ui/badge";
@@ -13,18 +13,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 import { Input } from "./ui/input";
 import { toast } from "./ui/use-toast";
 
-const apiBaseUrl = userApiBaseUrl;
+const apiBase = apiBaseUrl;
 const defaultMailboxDomain = mailboxDomain;
 
 export function AddressesPage() {
   const auth = useUserAuth();
-  const client = useMemo(() => createUserClient({ baseUrl: apiBaseUrl, getUserToken: () => auth.token }), [auth.token]);
+  const client = useMemo(() => createUserClient({ baseUrl: apiBase, getUserToken: () => auth.token }), [auth.token]);
   const [addresses, setAddresses] = useState<BoundAddress[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [name, setName] = useState("");
+  const [selectedDomain, setSelectedDomain] = useState(defaultMailboxDomain);
   const [isCreating, setIsCreating] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const selectedMailboxDomain = mailboxDomains.includes(selectedDomain) ? selectedDomain : defaultMailboxDomain;
 
   useEffect(() => {
     let cancelled = false;
@@ -53,11 +55,11 @@ export function AddressesPage() {
     setIsCreating(true);
     setError(null);
     try {
-      await client.createAndBindAddress({ name: mailboxName, domain: defaultMailboxDomain, enableRandomSubdomain: false });
+      await client.createAndBindAddress({ name: mailboxName, domain: selectedMailboxDomain, enableRandomSubdomain: false });
       setName("");
       setIsCreateOpen(false);
       setReloadKey((value) => value + 1);
-      toast({ title: "Mailbox created", description: `${mailboxName}@${defaultMailboxDomain} is ready.` });
+      toast({ title: "Mailbox created", description: `${mailboxName}@${selectedMailboxDomain} is ready.` });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to create mailbox.");
     } finally {
@@ -102,13 +104,25 @@ export function AddressesPage() {
               </Button>
             </CardHeader>
             <CardContent>
-              <form className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end" onSubmit={createAddress}>
+              <form className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(180px,auto)_auto] sm:items-end" onSubmit={createAddress}>
                 <div className="min-w-0">
                   <label className="text-sm font-bold" htmlFor="mailbox-name">Mailbox name</label>
                   <Input id="mailbox-name" className="mt-2 h-12 rounded-[16px]" value={name} onChange={(event) => setName(event.target.value)} placeholder="support" />
                 </div>
-                <div className="rounded-[16px] border border-white/70 bg-white/58 px-4 py-3 text-sm font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.82)]">
-                  @{defaultMailboxDomain}
+                <div className="min-w-0">
+                  <label className="text-sm font-bold" htmlFor="mailbox-domain">Mailbox domain</label>
+                  <select
+                    className="mt-2 h-12 w-full rounded-[16px] border border-white/70 bg-white/58 px-4 text-sm font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.82)] outline-none focus:ring-2 focus:ring-ring"
+                    id="mailbox-domain"
+                    onChange={(event) => setSelectedDomain(event.target.value)}
+                    value={selectedMailboxDomain}
+                  >
+                    {mailboxDomains.map((domain) => (
+                      <option key={domain} value={domain}>
+                        @{domain}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <Button className="h-12 rounded-[16px]" disabled={isCreating} type="submit">
                   {isCreating ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Plus className="h-4 w-4" aria-hidden="true" />}

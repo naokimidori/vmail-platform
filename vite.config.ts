@@ -3,7 +3,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [react()],
-  envPrefix: ["USER_", "ADMIN_", "MAILBOX_", "PUBLIC_"],
+  envPrefix: ["API_", "MAILBOX_", "PUBLIC_"],
   test: {
     environment: "jsdom",
     globals: true,

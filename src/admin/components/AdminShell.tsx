@@ -9,8 +9,8 @@ import {
 import { NavLink, Outlet } from "react-router-dom";
 
 import { useAdminAuth } from "../auth/AdminAuthContext";
+import { VmailLogo } from "../../components/ui/vmail-logo";
 import { Button } from "./ui/button";
-import { TechLogo } from "./TechLogo";
 
 const navItems = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -25,17 +25,16 @@ export function AdminShell() {
   return (
     <div className="page-shell text-foreground">
       <div className="site-frame" data-testid="admin-site-frame">
-        <div className="site-layer grid min-h-[calc(100vh-76px)] grid-rows-[auto_minmax(0,1fr)] gap-8">
-          <header className="top-nav">
-            <div className="flex min-w-0 items-center gap-3">
-              <TechLogo className="h-10 w-10" />
-              <div className="min-w-0">
-                <p className="section-kicker mb-0">V-Mail Console</p>
-                <strong className="block truncate text-lg font-black text-foreground">V-MAIL</strong>
-              </div>
+        <div className="site-layer flex h-screen">
+          <aside className="sticky top-0 w-[64px] flex-none flex flex-col overflow-y-auto h-full border-r border-border bg-card md:w-[240px]">
+            <div className="flex items-center gap-2.5 border-b border-border p-4">
+              <VmailLogo className="h-8 w-8 flex-none" />
+              <strong className="hidden text-sm font-semibold tracking-tight text-foreground md:block">
+                V-Mail Admin
+              </strong>
             </div>
 
-            <nav className="top-nav-links" aria-label="Admin navigation">
+            <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Admin navigation">
               {navItems.map((item) => (
                 <NavLink
                   key={item.to}
@@ -43,40 +42,42 @@ export function AdminShell() {
                   end={item.to === "/admin"}
                   className={({ isActive }) =>
                     [
-                      "relative inline-flex min-h-11 flex-none items-center gap-2 rounded-[14px] px-4 text-sm font-extrabold text-[#2f3a50] transition",
+                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition",
                       isActive
-                        ? "bg-white/64 text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.82)] after:absolute after:inset-x-4 after:-bottom-2 after:h-0.5 after:rounded-full after:bg-foreground"
-                        : "hover:bg-white/45 hover:text-foreground",
+                        ? "bg-foreground text-background"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
                     ].join(" ")
                   }
+                  title={item.label}
                 >
-                  <item.icon className="h-4 w-4" aria-hidden="true" />
-                  <span>{item.label}</span>
+                  <item.icon className="h-4 w-4 flex-none" aria-hidden="true" />
+                  <span className="hidden md:inline">{item.label}</span>
                 </NavLink>
               ))}
             </nav>
 
-            <div className="flex justify-end">
-              <div className="inline-flex items-center gap-3 rounded-[18px] border border-white/70 bg-white/58 px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.82)]">
-                <div className="grid h-9 w-9 place-items-center rounded-full bg-accent text-accent-foreground">
-                  <Inbox className="h-4 w-4" aria-hidden="true" />
-                </div>
-                <strong className="hidden text-sm sm:block">Super Admin</strong>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 rounded-full"
-                  type="button"
-                  onClick={auth.logout}
-                  aria-label="Logout"
-                >
-                  <LogOut className="h-4 w-4" aria-hidden="true" />
-                </Button>
+            <div className="flex items-center gap-2 border-t border-border p-3">
+              <div className="grid h-9 w-9 flex-none place-items-center rounded-full bg-muted text-muted-foreground">
+                <Inbox className="h-4 w-4" aria-hidden="true" />
               </div>
+              <div className="hidden min-w-0 flex-1 md:block">
+                <div className="truncate text-sm font-medium text-foreground">Super Admin</div>
+                <div className="truncate text-xs text-muted-foreground">Administrator</div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 flex-none rounded-full"
+                type="button"
+                onClick={auth.logout}
+                aria-label="Logout"
+              >
+                <LogOut className="h-4 w-4" aria-hidden="true" />
+              </Button>
             </div>
-          </header>
+          </aside>
 
-          <main className="min-w-0">
+          <main className="min-w-0 flex-1 overflow-y-auto p-6 md:p-8">
             <Outlet />
           </main>
         </div>

@@ -2,32 +2,43 @@ import { useEffect, useMemo, useState } from "react";
 import { Server } from "lucide-react";
 
 import { createAdminClient } from "../api/adminClient";
-import type { SystemStatus } from "../api/types";
+import type { SystemStatus as SystemStatusType } from "../api/types";
 import { useAdminAuth } from "../auth/AdminAuthContext";
-import { adminApiBaseUrl } from "../../config/env";
+import { apiBaseUrl } from "../../config/env";
 import { formatBeijingDateTime } from "../utils/date";
 import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { ErrorState, LoadingState } from "./States";
 
-const apiBaseUrl = adminApiBaseUrl;
+const apiBase = apiBaseUrl;
 
 export function SystemStatusPage() {
   const auth = useAdminAuth();
-  const [status, setStatus] = useState<SystemStatus | null>(null);
+  const [status, setStatus] = useState<SystemStatusType | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const client = useMemo(
-    () => createAdminClient({ baseUrl: apiBaseUrl, getCredential: () => auth.credential }),
+    () => createAdminClient({ baseUrl: apiBase, getCredential: () => auth.credential }),
     [auth.credential],
   );
 
-  useEffect(() => {
-    setStatus(null);
+  const load = async () => {
+    setIsRefreshing(true);
     setError(null);
-    client
-      .getStatus()
-      .then(setStatus)
-      .catch(() => setError("Unable to read system status."));
+    try {
+      const next = await client.getStatus();
+      setStatus(next);
+    } catch {
+      setError("Unable to read system status.");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client]);
 
   if (error) return <ErrorState message={error} />;
@@ -35,33 +46,52 @@ export function SystemStatusPage() {
 
   return (
     <section className="grid gap-6">
-      <Card className="hero-card">
-        <CardHeader>
-          <p className="section-kicker">Reachability</p>
-          <CardTitle className="text-3xl">Service Check</CardTitle>
-          <CardDescription>Checks whether the admin statistics endpoint is reachable.</CardDescription>
+      <Card>
+        <CardHeader className="flex-row items-start justify-between gap-4">
+          <div className="min-w-0">
+            <CardTitle className="text-xl">Service Check</CardTitle>
+            <CardDescription className="mt-1">
+              Whether the admin statistics endpoint is reachable.
+            </CardDescription>
+          </div>
+          <Button
+            aria-label="Refresh service status"
+            className="flex-none"
+            disabled={isRefreshing}
+            onClick={load}
+            size="icon"
+            variant="secondary"
+          >
+            <Server className={isRefreshing ? "h-4 w-4 animate-spin" : "h-4 w-4"} aria-hidden="true" />
+          </Button>
         </CardHeader>
         <CardContent>
-          <StatusItem label="Statistics API" value={status.status} />
+          <StatusItem status={status} />
+          <p className="mt-4 text-xs text-muted-foreground">
+            Last checked {formatBeijingDateTime(status.checkedAt)} · {status.message}
+          </p>
         </CardContent>
       </Card>
-      <p className="text-sm text-muted-foreground">
-        Last checked: {formatBeijingDateTime(status.checkedAt)} · {status.message}
-      </p>
     </section>
   );
 }
 
-function StatusItem({ label, value }: { label: string; value: string }) {
+function StatusItem({ status }: { status: SystemStatusType }) {
+  const variant = status.status === "healthy" ? "success" : status.status === "degraded" ? "warning" : "secondary";
   return (
-    <article className="flex flex-wrap items-center justify-between gap-4 rounded-[22px] border border-white/70 bg-white/46 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.82)]">
+    <article className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-muted/40 p-5">
       <div className="flex items-center gap-4">
-        <div className="grid h-11 w-11 place-items-center rounded-[16px] bg-accent text-accent-foreground">
+        <div className="grid h-11 w-11 place-items-center rounded-lg bg-muted text-muted-foreground">
           <Server className="h-5 w-5" aria-hidden="true" />
         </div>
-        <strong className="text-xl">{label}</strong>
+        <div>
+          <strong className="block text-base font-semibold text-foreground">Statistics API</strong>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {status.latencyMs === null ? "Latency unavailable" : `Latency ${status.latencyMs} ms`}
+          </p>
+        </div>
       </div>
-      <Badge variant={value === "healthy" ? "accent" : "secondary"}>{value}</Badge>
+      <Badge variant={variant}>{status.status}</Badge>
     </article>
   );
 }

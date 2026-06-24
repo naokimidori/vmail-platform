@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { createAdminClient } from "../api/adminClient";
 import type { SearchResult } from "../api/types";
 import { useAdminAuth } from "../auth/AdminAuthContext";
-import { adminApiBaseUrl } from "../../config/env";
+import { apiBaseUrl } from "../../config/env";
 import { MessageDetailDialog, MessageDetailLoading, useMessageDetailTransition } from "./MessageDetailDialog";
 import { EmptyState, ErrorState } from "./States";
 import { Badge } from "./ui/badge";
@@ -11,7 +11,7 @@ import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 
-const apiBaseUrl = adminApiBaseUrl;
+const apiBase = apiBaseUrl;
 
 export function SearchPage() {
   const auth = useAdminAuth();
@@ -20,7 +20,7 @@ export function SearchPage() {
   const [error, setError] = useState<string | null>(null);
   const { closeMessage, openMessage, pendingMessage, selectedMessage } = useMessageDetailTransition();
   const client = useMemo(
-    () => createAdminClient({ baseUrl: apiBaseUrl, getCredential: () => auth.credential }),
+    () => createAdminClient({ baseUrl: apiBase, getCredential: () => auth.credential }),
     [auth.credential],
   );
 

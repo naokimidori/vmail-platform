@@ -21,17 +21,27 @@ export default {
         },
         accent: {
           DEFAULT: "hsl(var(--accent))",
+          hover: "hsl(var(--accent-hover))",
           foreground: "hsl(var(--accent-foreground))",
         },
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
         },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
       },
       boxShadow: {
         frame: "var(--shadow-frame)",
-        glass: "var(--shadow-soft), var(--inner-highlight)",
-        purple: "var(--shadow-purple)",
+        soft: "var(--shadow-soft)",
+        button: "var(--shadow-button)",
+        glass: "var(--shadow-soft)",
       },
     },
   },

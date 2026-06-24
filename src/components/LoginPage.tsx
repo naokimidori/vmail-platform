@@ -1,23 +1,27 @@
 import { FormEvent, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Lock, Mail, ShieldCheck } from "lucide-react";
+import { ArrowRight, Eye, EyeOff } from "lucide-react";
+import { motion } from "framer-motion";
 
 import { createUserClient } from "../api/userClient";
 import { useUserAuth } from "../auth/UserAuthContext";
-import { userApiBaseUrl } from "../config/env";
+import { apiBaseUrl } from "../config/env";
 import { Button } from "./ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
+import { DotMap } from "./ui/dot-map";
+import { VmailLogo } from "./ui/vmail-logo";
 
-const apiBaseUrl = userApiBaseUrl;
+const apiBase = apiBaseUrl;
 
 export function LoginPage() {
   const auth = useUserAuth();
-  const client = useMemo(() => createUserClient({ baseUrl: apiBaseUrl, getUserToken: () => auth.token }), [auth.token]);
+  const client = useMemo(() => createUserClient({ baseUrl: apiBase, getUserToken: () => auth.token }), [auth.token]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isButtonHovered, setIsButtonHovered] = useState(false);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -42,80 +46,146 @@ export function LoginPage() {
   return (
     <main className="page-shell text-foreground">
       <div className="site-frame grid place-items-center" data-testid="login-site-frame">
-        <section
-          className="site-layer login-layout-grid grid min-w-0 items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(360px,430px)]"
-          style={{ width: "min(100%, calc(100vw - 48px))", maxWidth: "64rem" }}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="w-full max-w-4xl overflow-hidden rounded-2xl border border-border bg-card shadow-frame flex flex-col md:flex-row"
         >
-          <div className="min-w-0 max-w-2xl">
-            <p className="section-kicker">User Portal</p>
-            <h1 className="mb-6 max-w-full break-words text-[clamp(2rem,9vw,5.8rem)] font-black leading-[1.02] text-foreground">
-              Temporary mail.
-            </h1>
-            <p className="max-w-xl text-[clamp(1rem,1.6vw,1.24rem)] leading-8 text-muted-foreground">
-              Create inboxes, collect codes, and keep every address tied to your account.
-            </p>
-          </div>
+          <aside className="relative hidden md:block w-1/2 h-[600px] overflow-hidden border-b md:border-b-0 md:border-r border-border bg-gradient-to-br from-accent/5 via-accent/10 to-accent/5">
+            <DotMap />
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-8 text-center">
+              <motion.div
+                initial={{ opacity: 0, y: -12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.4 }}
+                className="mb-6"
+              >
+                <VmailLogo className="h-16 w-16 rounded-xl shadow-button" />
+              </motion.div>
+              <motion.h2
+                initial={{ opacity: 0, y: -12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.4 }}
+                className="text-3xl font-bold text-foreground"
+              >
+                V-Mail
+              </motion.h2>
+              <motion.p
+                initial={{ opacity: 0, y: -12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4, duration: 0.4 }}
+                className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground"
+              >
+                Sign in to access your temporary mailbox and keep every address tied to your account.
+              </motion.p>
+            </div>
+          </aside>
 
-          <Card className="hero-card min-w-0 w-full max-w-full overflow-hidden rounded-[28px]">
-            <CardHeader className="space-y-4 p-6 pb-4 sm:p-8 sm:pb-4">
-              <div className="grid h-14 w-14 place-items-center rounded-[18px] bg-primary text-primary-foreground shadow-purple">
-                <Mail className="h-6 w-6" aria-hidden="true" />
-              </div>
-              <div>
-                <p className="section-kicker">V-Mail</p>
-                <CardTitle className="mt-2 text-3xl text-foreground">Log in to V-Mail</CardTitle>
-                <CardDescription className="mt-3">Manage your temporary mailbox accounts.</CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6 pt-2 sm:p-8 sm:pt-2">
-              <form className="grid gap-4" onSubmit={submit}>
-                <label className="text-sm font-bold" htmlFor="login-email">
-                  Email
-                </label>
-                <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <section className="w-full md:w-1/2 p-8 md:p-10 flex flex-col justify-center bg-card">
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+            >
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground">Welcome back</h1>
+              <p className="mt-1 text-muted-foreground">Sign in to your mailbox</p>
+
+              <form className="mt-8 space-y-5" onSubmit={submit}>
+                <div className="space-y-1.5">
+                  <label htmlFor="login-email" className="block text-sm font-medium text-foreground">
+                    Email
+                  </label>
                   <Input
                     id="login-email"
-                    className="h-12 rounded-[16px] pl-10"
+                    type="email"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
+                    placeholder="Enter your email address"
                     autoComplete="email"
+                    required
+                    className="h-11"
                   />
                 </div>
-                <label className="text-sm font-bold" htmlFor="login-password">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="login-password"
-                    className="h-12 rounded-[16px] pl-10"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    type="password"
-                    autoComplete="current-password"
-                  />
+
+                <div className="space-y-1.5">
+                  <label htmlFor="login-password" className="block text-sm font-medium text-foreground">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <Input
+                      id="login-password"
+                      type={isPasswordVisible ? "text" : "password"}
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder="Enter your password"
+                      autoComplete="current-password"
+                      required
+                      className="h-11 pr-10"
+                    />
+                    <button
+                      type="button"
+                      aria-label={isPasswordVisible ? "Hide password" : "Show password"}
+                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground transition hover:text-foreground"
+                      onClick={() => setIsPasswordVisible((value) => !value)}
+                    >
+                      {isPasswordVisible ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+                    </button>
+                  </div>
                 </div>
-                {error ? <p role="alert" className="text-sm font-bold text-red-700">{error}</p> : null}
-                <Button className="h-12 w-full rounded-[16px] font-black" disabled={isSubmitting} type="submit">
-                  {isSubmitting ? "Logging in..." : "Log in"}
-                </Button>
-              </form>
-              <p className="mt-5 text-center text-sm text-muted-foreground">
-                New here? <Link className="font-black text-primary hover:text-primary-hover" to="/register">Create an account</Link>
-              </p>
-              <div className="mt-4 flex justify-center border-t border-border pt-4">
-                <Link
-                  className="inline-flex min-h-10 items-center gap-2 rounded-[14px] px-3 text-sm font-black text-[#2f3a50] transition hover:bg-white/58 hover:text-foreground"
-                  to="/admin"
+
+                {error ? (
+                  <p role="alert" className="text-sm text-red-600">{error}</p>
+                ) : null}
+
+                <motion.div
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                  onHoverStart={() => setIsButtonHovered(true)}
+                  onHoverEnd={() => setIsButtonHovered(false)}
+                  className="pt-2"
                 >
-                  <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-                  Admin access
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-        </section>
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="relative w-full h-11 overflow-hidden bg-gradient-to-r from-accent to-accent-hover hover:from-accent-hover hover:to-accent-hover"
+                  >
+                    <span className="relative z-10 inline-flex items-center justify-center">
+                      {isSubmitting ? "Logging in..." : "Log in"}
+                      <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+                    </span>
+                    {isButtonHovered ? (
+                      <motion.span
+                        initial={{ left: "-100%" }}
+                        animate={{ left: "100%" }}
+                        transition={{ duration: 0.9, ease: "easeInOut" }}
+                        className="pointer-events-none absolute top-0 bottom-0 w-20 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                        style={{ filter: "blur(8px)" }}
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                  </Button>
+                </motion.div>
+
+                <div className="flex items-center justify-between text-sm pt-2">
+                  <span className="text-muted-foreground">
+                    New here?{" "}
+                    <Link className="font-semibold text-foreground" to="/register">
+                      Create an account
+                    </Link>
+                  </span>
+                  <Link
+                    aria-label="Go to admin access"
+                    className="inline-flex items-center gap-1.5 text-muted-foreground transition hover:text-foreground"
+                    to="/admin"
+                  >
+                    Admin
+                  </Link>
+                </div>
+              </form>
+            </motion.div>
+          </section>
+        </motion.div>
       </div>
     </main>
   );

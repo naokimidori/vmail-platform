@@ -1,0 +1,9 @@
+name = "v-mail"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "dist"
+
+# Environment variables (bundled into frontend, no secrets)
+[vars]
+API_BASE_URL = "https://api.example.com"
+MAILBOX_DOMAINS = "example.com,mail.example.net"
+PUBLIC_MAILBOX_URL = "https://mail.example.com"

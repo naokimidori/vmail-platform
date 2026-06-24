@@ -40,7 +40,7 @@ describe("AI roadmap visual refresh contract", () => {
     );
 
     expect(screen.getByTestId("admin-site-frame")).toHaveClass("site-frame");
-    expect(screen.getByRole("navigation", { name: "Admin navigation" })).toHaveClass("top-nav-links");
+    expect(screen.getByRole("navigation", { name: "Admin navigation" })).toHaveClass("space-y-1");
     expect(screen.getByRole("link", { name: /Dashboard/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Accounts/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Mail Setting/i })).toBeInTheDocument();
@@ -51,9 +51,11 @@ describe("AI roadmap visual refresh contract", () => {
 
   it("renders login in the same glass frame without changing auth copy", () => {
     render(
-      <AdminAuthProvider>
-        <LoginScreen />
-      </AdminAuthProvider>,
+      <MemoryRouter>
+        <AdminAuthProvider>
+          <LoginScreen />
+        </AdminAuthProvider>
+      </MemoryRouter>,
     );
 
     expect(screen.getByTestId("login-site-frame")).toHaveClass("site-frame");
@@ -95,12 +97,12 @@ describe("AI roadmap visual refresh contract", () => {
       </AdminAuthProvider>,
     );
 
-    expect(await screen.findByTestId("dashboard-hero-card")).toHaveClass("hero-card");
-    expect(screen.getByText("V-Mail Service")).toBeInTheDocument();
-    expect(screen.getAllByText("Accounts").length).toBeGreaterThan(0);
+    expect(await screen.findByText("V-Mail Mailbox")).toBeInTheDocument();
+    expect(screen.getAllByText("Mailbox accounts").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Messages").length).toBeGreaterThan(0);
     expect(screen.getByText("Mailflow")).toBeInTheDocument();
-    expect(screen.getByText("Recent Activity")).toBeInTheDocument();
+    expect(screen.queryByText("Recent activity")).not.toBeInTheDocument();
+    expect(screen.queryByText("Recent messages")).not.toBeInTheDocument();
     expect(screen.queryByText("Unread messages")).not.toBeInTheDocument();
     expect(screen.queryAllByText(/^Read-only$/i)).toHaveLength(0);
   });

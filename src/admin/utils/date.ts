@@ -91,3 +91,35 @@ function formatDateParts(date: Date, options: DateTimeFormatOptions, hasTime: bo
 
   return `${formattedDate} ${formattedTime}`;
 }
+
+const relativeFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+
+export function formatRelativeTime(value: string, now: Date = new Date()): string {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  const diffMs = date.getTime() - now.getTime();
+  const diffSec = Math.round(diffMs / 1000);
+  const absSec = Math.abs(diffSec);
+
+  if (absSec < 60) return relativeFormatter.format(diffSec, "second");
+
+  const diffMin = Math.round(diffSec / 60);
+  if (Math.abs(diffMin) < 60) return relativeFormatter.format(diffMin, "minute");
+
+  const diffHour = Math.round(diffMin / 60);
+  if (Math.abs(diffHour) < 24) return relativeFormatter.format(diffHour, "hour");
+
+  const diffDay = Math.round(diffHour / 24);
+  if (Math.abs(diffDay) < 7) return relativeFormatter.format(diffDay, "day");
+
+  const diffWeek = Math.round(diffDay / 7);
+  if (Math.abs(diffWeek) < 5) return relativeFormatter.format(diffWeek, "week");
+
+  const diffMonth = Math.round(diffDay / 30);
+  if (Math.abs(diffMonth) < 12) return relativeFormatter.format(diffMonth, "month");
+
+  return relativeFormatter.format(Math.round(diffDay / 365), "year");
+}

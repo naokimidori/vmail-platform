@@ -84,7 +84,7 @@ describe("production readiness", () => {
       </AdminAuthProvider>,
     );
 
-    expect((await screen.findAllByText("Accounts")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("Mailbox accounts")).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Messages").length).toBeGreaterThan(0);
     expect(screen.queryByText("Mailboxes")).not.toBeInTheDocument();
   });

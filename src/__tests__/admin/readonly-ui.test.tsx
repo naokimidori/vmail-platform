@@ -1,8 +1,10 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 
-import { AccountsPage } from "../../admin/components/AccountsPage";
+import { AccountDetailPage } from "../../admin/components/AccountDetailPage";
+import { AccountListPage } from "../../admin/components/AccountListPage";
 import { AdminAuthProvider } from "../../admin/auth/AdminAuthContext";
 import { Toaster } from "../../admin/components/ui/toaster";
 
@@ -80,14 +82,25 @@ const opsMessage = {
 
 const createdAccounts: typeof account[] = [];
 
-function createAccountDetail(accountId: string, options = {}) {
-  const selected =
-    createdAccounts.find((item) => item.id === accountId) ??
-    (accountId === "ops-bot" ? opsAccount : accountId === "later" ? laterAccount : account);
+function createAccountDetail(identifier: string, options = {}) {
+  const findByEmail = (email: string) =>
+    createdAccounts.find((item) => item.ownerEmail === email) ??
+    (email === opsAccount.ownerEmail
+      ? opsAccount
+      : email === laterAccount.ownerEmail
+        ? laterAccount
+        : email === account.ownerEmail
+          ? account
+          : null);
+  const findById = (id: string) =>
+    createdAccounts.find((item) => item.id === id) ??
+    (id === "ops-bot" ? opsAccount : id === "later" ? laterAccount : account);
+  const selected = findByEmail(identifier) ?? findById(identifier);
+  const isOps = selected?.ownerEmail === opsAccount.ownerEmail;
   return {
-    account: selected,
-    messages: accountId === "ops-bot" ? [opsMessage] : [],
-    messagesTotal: accountId === "ops-bot" ? 1 : 0,
+    account: selected ?? account,
+    messages: isOps ? [opsMessage] : [],
+    messagesTotal: isOps ? 1 : 0,
     messagesLimit: 20,
     messagesOffset: Number((options as { offset?: number }).offset ?? 0),
     activity: [],
@@ -132,25 +145,26 @@ function createManyAccountsPage({ limit = 20, offset = 0 } = {}) {
   };
 }
 
-const getAccount = vi.fn(async (accountId: string, options = {}) => createAccountDetail(accountId, options));
+const getAccount = vi.fn(async (identifier: string, options = {}) => createAccountDetail(identifier, options));
 const listAccountsPage = vi.fn(async (options = {}) => createAccountsPage(options));
 const deletedAddressIds = new Set<string>();
 const deleteAddress = vi.fn(async (addressId: string) => {
   deletedAddressIds.add(addressId);
 });
 const getAddressAccessJwt = vi.fn(async (addressId: string) => `jwt-for-${addressId}`);
-const createAddress = vi.fn(async ({ prefix }: { prefix: string }) => {
+const createAddress = vi.fn(async ({ prefix, domain = "example.com" }: { prefix: string; domain?: string }) => {
+  const email = `${prefix}@${domain}`;
   const nextAccount = {
     ...account,
     id: `addr-${prefix}`,
-    displayName: `${prefix}@example.com`,
-    ownerEmail: `${prefix}@example.com`,
+    displayName: email,
+    ownerEmail: email,
     addresses: [
       {
         ...account.addresses[0],
         id: `addr-${prefix}`,
-        email: `${prefix}@example.com`,
-        label: `${prefix}@example.com`,
+        email,
+        label: email,
         createdAt: "2026-06-11 09:17:02",
       },
     ],
@@ -173,10 +187,36 @@ vi.mock("../../admin/api/adminClient", () => ({
   }),
 }));
 
-function renderAccountsPage() {
+vi.mock("../../config/env", () => ({
+  apiBaseUrl: "mock",
+  mailboxDomain: "example.com",
+  mailboxDomains: ["example.com", "vino.cc.cd", "vinoss.us.ci"],
+  publicMailboxUrl: "https://mail.example.com",
+}));
+
+function renderListPage(initialPath = "/admin/accounts") {
   return render(
     <AdminAuthProvider>
-      <AccountsPage />
+      <MemoryRouter initialEntries={[initialPath]}>
+        <Routes>
+          <Route path="/admin/accounts" element={<AccountListPage />} />
+          <Route path="/admin/accounts/:email" element={<AccountDetailPage />} />
+        </Routes>
+      </MemoryRouter>
+      <Toaster />
+    </AdminAuthProvider>,
+  );
+}
+
+function renderDetailPage(email: string) {
+  return render(
+    <AdminAuthProvider>
+      <MemoryRouter initialEntries={[`/admin/accounts/${encodeURIComponent(email)}`]}>
+        <Routes>
+          <Route path="/admin/accounts" element={<AccountListPage />} />
+          <Route path="/admin/accounts/:email" element={<AccountDetailPage />} />
+        </Routes>
+      </MemoryRouter>
       <Toaster />
     </AdminAuthProvider>,
   );
@@ -184,7 +224,7 @@ function renderAccountsPage() {
 
 const randomMailboxPrefixPattern = /^[a-z]+\d{2,6}$/;
 
-describe("AccountsPage", () => {
+describe("AccountListPage", () => {
   afterEach(() => {
     vi.useRealTimers();
     listAccountsPage.mockClear();
@@ -196,31 +236,22 @@ describe("AccountsPage", () => {
     createdAccounts.length = 0;
   });
 
-  it("renders account data with focused account actions", async () => {
-    renderAccountsPage();
+  it("renders account rows with the new account button and no detail panel", async () => {
+    renderListPage();
 
     expect(await screen.findByRole("button", { name: "Open team-a@example.com account" })).toBeInTheDocument();
-    expect(screen.getByText("Account details")).toBeInTheDocument();
-    expect(await screen.findByText("Created: 2026/5/1 17:00:00")).toBeInTheDocument();
-    expect(screen.queryByText("Team A")).not.toBeInTheDocument();
-    expect(screen.queryByText("Addr.")).not.toBeInTheDocument();
-    expect(screen.queryByText("1 address")).not.toBeInTheDocument();
-    expect(screen.getByText("128 messages")).toBeInTheDocument();
-    expect(screen.queryByText("Mailbox addresses")).not.toBeInTheDocument();
-    expect(screen.queryByText("Recent messages")).not.toBeInTheDocument();
-    expect(screen.queryByText(/Showing/)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Page number")).not.toBeInTheDocument();
-    expect(screen.queryByRole("navigation", { name: "Accounts pagination" })).not.toBeInTheDocument();
-    expect(screen.queryByText("Read-only account view")).not.toBeInTheDocument();
-    expect(screen.queryAllByText(/^Read-only$/i)).toHaveLength(0);
-    expect(screen.queryByText("active")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /send/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New mailbox account" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Copy team-a@example.com" })).toBeInTheDocument();
+    expect(screen.queryByText("Account details")).not.toBeInTheDocument();
+    expect(screen.queryByText("Selected account")).not.toBeInTheDocument();
+    expect(screen.queryByText("128 messages")).not.toBeInTheDocument();
+    expect(screen.queryByText("Recent messages")).not.toBeInTheDocument();
+    expect(screen.queryByText("Recent activity")).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Account messages pagination" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Refresh account messages" })).not.toBeInTheDocument();
   });
 
-  it("copies an account email from the account list", async () => {
+  it("copies an account email from the inline copy button and shows a 2s confirmation", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn();
     Object.defineProperty(navigator, "clipboard", {
@@ -228,37 +259,53 @@ describe("AccountsPage", () => {
       value: { writeText },
     });
 
-    renderAccountsPage();
+    renderListPage();
 
-    await user.click(await screen.findByRole("button", { name: "Copy team-a@example.com" }));
+    const copyButton = await screen.findByRole("button", { name: "Copy team-a@example.com" });
+    await user.click(copyButton);
 
     expect(writeText).toHaveBeenCalledWith("team-a@example.com");
-    expect(await screen.findByText("Email copied")).toBeInTheDocument();
+    expect(screen.queryByText("Email copied")).not.toBeInTheDocument();
+    const copiedButton = screen.getByRole("button", { name: "Copied team-a@example.com" });
+    expect(copiedButton).toBeInTheDocument();
+    expect(copiedButton).toHaveAttribute("data-state", "copied");
+
+    await waitFor(
+      () =>
+        expect(
+          screen.queryByRole("button", { name: "Copied team-a@example.com" }),
+        ).not.toBeInTheDocument(),
+      { timeout: 3000 },
+    );
+    expect(screen.getByRole("button", { name: "Copy team-a@example.com" })).toHaveAttribute(
+      "data-state",
+      "idle",
+    );
   });
 
-  it("creates a mailbox account with a typed prefix", async () => {
+  it("creates a mailbox account with a typed prefix and routes to its detail page", async () => {
     const user = userEvent.setup();
 
-    renderAccountsPage();
+    renderListPage();
 
     await user.click(await screen.findByRole("button", { name: "New mailbox account" }));
 
     expect(screen.getByRole("dialog", { name: "New mailbox account" })).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Mailbox prefix"), "support");
+    await user.selectOptions(screen.getByLabelText("Mailbox domain"), "vinoss.us.ci");
     await user.click(screen.getByRole("button", { name: "Create account" }));
 
     await waitFor(() => {
-      expect(createAddress).toHaveBeenCalledWith({ prefix: "support" });
+      expect(createAddress).toHaveBeenCalledWith({ prefix: "support", domain: "vinoss.us.ci" });
     });
-    expect(await screen.findByRole("button", { name: "Open support@example.com account" })).toBeInTheDocument();
     expect(await screen.findByText("Mailbox account created")).toBeInTheDocument();
   });
 
   it("generates a random mailbox prefix before creating an account", async () => {
     const user = userEvent.setup();
 
-    renderAccountsPage();
+    renderListPage();
 
     await user.click(await screen.findByRole("button", { name: "New mailbox account" }));
     await user.click(screen.getByRole("button", { name: "Random prefix" }));
@@ -270,13 +317,16 @@ describe("AccountsPage", () => {
     await user.click(screen.getByRole("button", { name: "Create account" }));
 
     await waitFor(() => {
-      expect(createAddress).toHaveBeenCalledWith({ prefix: expect.stringMatching(randomMailboxPrefixPattern) });
+      expect(createAddress).toHaveBeenCalledWith({
+        prefix: expect.stringMatching(randomMailboxPrefixPattern),
+        domain: "example.com",
+      });
     });
   });
 
   it("centers the create account dialog from a viewport portal", async () => {
     const user = userEvent.setup();
-    const { container } = renderAccountsPage();
+    const { container } = renderListPage();
 
     await user.click(await screen.findByRole("button", { name: "New mailbox account" }));
 
@@ -288,10 +338,10 @@ describe("AccountsPage", () => {
     expect(overlay).toHaveClass("fixed", "inset-0", "grid", "place-items-center");
   });
 
-  it("filters accounts from the left list search", async () => {
+  it("filters accounts by search term", async () => {
     const user = userEvent.setup();
 
-    renderAccountsPage();
+    renderListPage();
 
     await user.type(await screen.findByPlaceholderText("Search accounts"), "ops");
 
@@ -301,10 +351,10 @@ describe("AccountsPage", () => {
     expect(screen.getByRole("button", { name: "Open ops@example.com account" })).toBeInTheDocument();
   });
 
-  it("debounces mailbox search text and replaces account rows with loading feedback", async () => {
+  it("debounces search text and replaces account rows with loading feedback", async () => {
     listAccountsPage.mockImplementationOnce(async (options = {}) => createManyAccountsPage(options));
 
-    renderAccountsPage();
+    renderListPage();
 
     await screen.findByPlaceholderText("Search accounts");
     expect(screen.getByRole("navigation", { name: "Accounts pagination" })).toBeInTheDocument();
@@ -331,7 +381,7 @@ describe("AccountsPage", () => {
     expect(listAccountsPage).toHaveBeenLastCalledWith({ limit: 10, offset: 0, query: "later" });
   });
 
-  it("shows empty states when the accounts page has no accounts", async () => {
+  it("shows empty states when the accounts list has no accounts", async () => {
     listAccountsPage.mockResolvedValueOnce({
       items: [],
       total: 0,
@@ -339,98 +389,34 @@ describe("AccountsPage", () => {
       offset: 0,
     });
 
-    renderAccountsPage();
+    renderListPage();
 
-    expect(await screen.findByText("No accounts found")).toBeInTheDocument();
-    expect(screen.getByText("No mailbox accounts match the current view.")).toBeInTheDocument();
-    expect(screen.getByText("No account selected")).toBeInTheDocument();
-    expect(screen.getByText("Select or create a mailbox account to view messages.")).toBeInTheDocument();
+    expect(await screen.findByText("No mailbox accounts yet")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Mailbox accounts receive messages for the configured domains/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("No account selected")).not.toBeInTheDocument();
     expect(getAccount).not.toHaveBeenCalled();
   });
 
-  it("switches accounts and opens message details from the message list", async () => {
-    const user = userEvent.setup();
+  it("exposes copy, link, and delete actions directly on each row", async () => {
+    renderListPage();
 
-    renderAccountsPage();
-
-    await user.click(await screen.findByRole("button", { name: "Open ops@example.com account" }));
-
-    expect(await screen.findAllByText("ops@example.com")).toHaveLength(2);
-    expect(getAccount).toHaveBeenLastCalledWith("ops-bot", { limit: 10, offset: 0 });
-    expect(screen.getByText("Login from a new device")).toBeInTheDocument();
-    expect(screen.getByText("2026/6/3 16:50")).toBeInTheDocument();
-    expect(screen.queryByText("Read")).not.toBeInTheDocument();
-
-    vi.useFakeTimers();
-    fireEvent.click(screen.getByRole("button", { name: "Open message Login from a new device" }));
-
-    expect(screen.getByRole("status", { name: "Loading message detail" })).toBeInTheDocument();
-    expect(screen.queryByTestId("message-detail-overlay")).not.toBeInTheDocument();
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(120);
-    });
-
-    expect(screen.getByRole("dialog", { name: "Login from a new device" })).toBeInTheDocument();
-    expect(screen.getByText("Your security code is 863223.")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: "Copy ops@example.com" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Get access link for ops@example.com" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Delete ops@example.com" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Account actions for ops@example.com" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("shows detected message codes beside account detail subjects and copies without opening details", async () => {
-    const user = userEvent.setup();
-    const writeText = vi.fn();
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText },
-    });
-
-    renderAccountsPage();
-
-    await user.click(await screen.findByRole("button", { name: "Open ops@example.com account" }));
-
-    const codeButton = await screen.findByRole("button", { name: "Copy code 863223" });
-    expect(codeButton).toBeInTheDocument();
-
-    await user.click(codeButton);
-
-    expect(writeText).toHaveBeenCalledWith("863223");
-    expect(screen.queryByRole("dialog", { name: "Login from a new device" })).not.toBeInTheDocument();
-    expect(await screen.findByText("Verification code copied")).toBeInTheDocument();
-  });
-
-  it("keeps message timestamps on the first row while truncating long subjects", async () => {
-    const user = userEvent.setup();
-
-    renderAccountsPage();
-
-    await user.click(await screen.findByRole("button", { name: "Open ops@example.com account" }));
-
-    const subjectButton = await screen.findByRole("button", { name: "Open message Login from a new device" });
-    expect(subjectButton).toHaveClass("truncate", "max-w-full");
-    expect(screen.getByText("2026/6/3 16:50")).toHaveClass("whitespace-nowrap");
-  });
-
-  it("opens account row actions from the overflow menu", async () => {
-    const user = userEvent.setup();
-
-    renderAccountsPage();
-
-    const actionsButton = await screen.findByRole("button", { name: "Account actions for ops@example.com" });
-
-    await user.hover(actionsButton);
-
-    expect(screen.getByRole("menu", { name: "Actions for ops@example.com" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Delete" })).toBeEnabled();
-
-    await user.click(actionsButton);
-    await user.click(screen.getByRole("menuitem", { name: "Open" }));
-
-    await waitFor(() => {
-      expect(getAccount).toHaveBeenLastCalledWith("ops-bot", { limit: 10, offset: 0 });
-    });
-    expect(screen.getAllByText("ops@example.com")).toHaveLength(2);
-  });
-
-  it("fetches and copies an account access link from the overflow menu", async () => {
+  it("fetches and copies an account access link from the row action", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn();
     let resolveAccessJwt: ((jwt: string) => void) | undefined;
@@ -445,10 +431,11 @@ describe("AccountsPage", () => {
       value: { writeText },
     });
 
-    renderAccountsPage();
+    renderListPage();
 
-    await user.click(await screen.findByRole("button", { name: "Account actions for ops@example.com" }));
-    await user.click(screen.getByRole("menuitem", { name: "Link" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Get access link for ops@example.com" }),
+    );
 
     expect(await screen.findByRole("status", { name: "Generating access link" })).toBeInTheDocument();
     await waitFor(() => {
@@ -486,10 +473,9 @@ describe("AccountsPage", () => {
         }),
     );
 
-    renderAccountsPage();
+    renderListPage();
 
-    await user.click(await screen.findByRole("button", { name: "Account actions for ops@example.com" }));
-    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
+    await user.click(await screen.findByRole("button", { name: "Delete ops@example.com" }));
 
     expect(screen.getByRole("dialog", { name: "Delete ops@example.com?" })).toBeInTheDocument();
     expect(deleteAddress).not.toHaveBeenCalled();
@@ -518,36 +504,115 @@ describe("AccountsPage", () => {
     const user = userEvent.setup();
     deleteAddress.mockRejectedValueOnce(new Error("delete failed"));
 
-    renderAccountsPage();
+    renderListPage();
 
-    await user.click(await screen.findByRole("button", { name: "Account actions for ops@example.com" }));
-    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
+    await user.click(await screen.findByRole("button", { name: "Delete ops@example.com" }));
     await user.click(screen.getByRole("button", { name: "Confirm delete" }));
 
     await waitFor(() => {
-    expect(deleteAddress).toHaveBeenCalledWith("addr-ops-bot");
+      expect(deleteAddress).toHaveBeenCalledWith("addr-ops-bot");
     });
     expect(screen.getByRole("dialog", { name: "Delete ops@example.com?" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Confirm permanent delete" })).not.toBeInTheDocument();
     expect(await screen.findByText("Delete failed")).toBeInTheDocument();
     expect(screen.getByText("Could not delete ops@example.com. Try again later.")).toBeInTheDocument();
   });
+});
 
-  it("refreshes messages for the selected account from account details", async () => {
+describe("AccountDetailPage", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    listAccountsPage.mockClear();
+    getAccount.mockClear();
+    deleteAddress.mockClear();
+    getAddressAccessJwt.mockClear();
+    createAddress.mockClear();
+    deletedAddressIds.clear();
+    createdAccounts.length = 0;
+  });
+
+  it("renders the breadcrumb and account header for the selected account", async () => {
+    renderDetailPage("ops@example.com");
+
+    const breadcrumb = await screen.findByRole("navigation", { name: "Breadcrumb" });
+    expect(within(breadcrumb).getByRole("link", { name: "Accounts" })).toHaveAttribute(
+      "href",
+      "/admin/accounts",
+    );
+    expect(within(breadcrumb).getByText("ops@example.com")).toBeInTheDocument();
+    expect(within(breadcrumb).queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument();
+
+    expect(await screen.findByRole("heading", { name: "ops@example.com" })).toBeInTheDocument();
+    expect(screen.getByText("Created: 2026/5/2 17:00:00")).toBeInTheDocument();
+    expect(screen.getByText("4 messages")).toBeInTheDocument();
+  });
+
+  it("renders messages for the selected account and opens message details", async () => {
     const user = userEvent.setup();
 
-    renderAccountsPage();
+    renderDetailPage("ops@example.com");
 
-    await user.click(await screen.findByRole("button", { name: "Open ops@example.com account" }));
+    expect(await screen.findByText("Login from a new device")).toBeInTheDocument();
+    expect(screen.getByText("PayPal <service@paypal.com>")).toBeInTheDocument();
+    expect(screen.getByText("2026/6/3 16:50")).toBeInTheDocument();
+
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: "Open message Login from a new device" }));
+
+    expect(screen.getByRole("status", { name: "Loading message detail" })).toBeInTheDocument();
+    expect(screen.queryByTestId("message-detail-overlay")).not.toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120);
+    });
+    vi.useRealTimers();
+
+    expect(screen.getByRole("dialog", { name: "Login from a new device" })).toBeInTheDocument();
+    expect(screen.getByText("Your security code is 863223.")).toBeInTheDocument();
+  });
+
+  it("shows detected message codes and copies without opening details", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn();
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    renderDetailPage("ops@example.com");
+
+    const codeButton = await screen.findByRole("button", { name: "Copy code 863223" });
+    expect(codeButton).toBeInTheDocument();
+
+    await user.click(codeButton);
+
+    expect(writeText).toHaveBeenCalledWith("863223");
+    expect(screen.queryByRole("dialog", { name: "Login from a new device" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Copied 863223" })).toBeInTheDocument();
+  });
+
+  it("keeps message timestamps on the first row while truncating long subjects", async () => {
+    renderDetailPage("ops@example.com");
+
+    const subjectButton = await screen.findByRole("button", { name: "Open message Login from a new device" });
+    expect(subjectButton).toHaveClass("truncate", "max-w-full");
+    expect(screen.getByText("2026/6/3 16:50")).toHaveClass("whitespace-nowrap");
+  });
+
+  it("refreshes messages for the selected account", async () => {
+    const user = userEvent.setup();
+
+    renderDetailPage("ops@example.com");
+
     await screen.findByText("Login from a new device");
     getAccount.mockClear();
     let resolveRefresh: (() => void) | undefined;
     const refreshPromise = new Promise<void>((resolve) => {
       resolveRefresh = resolve;
     });
-    getAccount.mockImplementationOnce(async (accountId: string, options = {}) => {
+    getAccount.mockImplementationOnce(async (identifier: string, options = {}) => {
       await refreshPromise;
-      return createAccountDetail(accountId, options);
+      return createAccountDetail(identifier, options);
     });
 
     await user.click(screen.getByRole("button", { name: "Refresh account messages" }));
@@ -555,23 +620,18 @@ describe("AccountsPage", () => {
     expect(await screen.findByText("Refreshing messages...")).toBeInTheDocument();
     resolveRefresh?.();
     await waitFor(() => {
-      expect(getAccount).toHaveBeenCalledWith("ops-bot", { limit: 10, offset: 0 });
+      expect(getAccount).toHaveBeenCalledWith("ops@example.com", { limit: 10, offset: 0 });
     });
   });
 
   it("updates displayed mail counts from refreshed message totals", async () => {
     const user = userEvent.setup();
 
-    renderAccountsPage();
-
-    await user.click(await screen.findByRole("button", { name: "Open ops@example.com account" }));
+    renderDetailPage("ops@example.com");
     expect(await screen.findByText("4 messages")).toBeInTheDocument();
-    const opsRow = screen.getByRole("button", { name: "Open ops@example.com account" }).closest("tr");
-    expect(opsRow).not.toBeNull();
-    expect(within(opsRow as HTMLElement).getByText("4")).toBeInTheDocument();
 
-    getAccount.mockImplementationOnce(async (accountId: string, options = {}) => ({
-      ...createAccountDetail(accountId, options),
+    getAccount.mockImplementationOnce(async (identifier: string, options = {}) => ({
+      ...createAccountDetail(identifier, options),
       messages: [
         opsMessage,
         {
@@ -587,6 +647,5 @@ describe("AccountsPage", () => {
     await user.click(screen.getByRole("button", { name: "Refresh account messages" }));
 
     expect(await screen.findByText("5 messages")).toBeInTheDocument();
-    expect(within(opsRow as HTMLElement).getByText("5")).toBeInTheDocument();
   });
 });

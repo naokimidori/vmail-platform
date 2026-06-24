@@ -12,7 +12,7 @@ describe("App", () => {
       </BrowserRouter>,
     );
 
-    expect(screen.getByRole("heading", { name: "Temporary mail." })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Log in to V-Mail" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Welcome back" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "V-Mail" })).toBeInTheDocument();
   });
 });
