@@ -1,5 +1,5 @@
 import { ChevronRight, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { createAdminClient } from "../api/adminClient";
@@ -37,6 +37,7 @@ export function AccountDetailPage() {
   const [messageOffset, setMessageOffset] = useState(0);
   const { closeMessage, openMessage, pendingMessage, selectedMessage } = useMessageDetailTransition();
   const [reloadKey, setReloadKey] = useState(0);
+  const knownTotalRef = useRef(0);
 
   const client = useMemo(
     () => createAdminClient({ baseUrl: apiBaseUrl, getCredential: () => auth.credential }),
@@ -45,8 +46,12 @@ export function AccountDetailPage() {
 
   const syncAccountDetail = useCallback((nextDetail: AccountDetail) => {
     const nextMessageCount = getDisplayMessageCount(nextDetail);
+    if (nextDetail.messagesTotal > knownTotalRef.current) {
+      knownTotalRef.current = nextDetail.messagesTotal;
+    }
     const syncedDetail = {
       ...nextDetail,
+      messagesTotal: knownTotalRef.current,
       account: {
         ...nextDetail.account,
         messageCount: nextMessageCount,
@@ -112,6 +117,7 @@ export function AccountDetailPage() {
 
   useEffect(() => {
     setMessageOffset(0);
+    knownTotalRef.current = 0;
   }, [decodedEmail]);
 
   if (error) return <ErrorState message={error} />;
